@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data-raw/
+public/data/
+.DS_Store
+*.log
+bench-results/
+screenshots/

@@ -1,0 +1,31 @@
+{
+  "name": "mini-open-world",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "agent": "node tools/agent.mjs",
+    "bench": "node tools/bench.mjs",
+    "data": "node tools/data/build-all.mjs"
+  },
+  "dependencies": {
+    "@tweakpane/plugin-essentials": "^0.2.1",
+    "three": "^0.186.1",
+    "tweakpane": "^4.0.5"
+  },
+  "devDependencies": {
+    "@tweakpane/core": "^2.0.5",
+    "@types/three": "^0.186.0",
+    "@webgpu/types": "^0.1.74",
+    "geotiff": "^3.0.5",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^25.14.0",
+    "sharp": "^0.35.5",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "ws": "^8.22.0"
+  }
+}

@@ -1,0 +1,88 @@
+// Deterministic camera paths for benchmarks and reproducible screenshots.
+// Each key: LV95 position (or POI name) + height mode, look target; positions are resolved at runtime.
+import { CatmullRomCurve3, Vector3 } from 'three/webgpu';
+import { POIS, lv95ToWorld } from '../world/geo';
+
+interface Key {
+  at: string | [number, number]; // POI name or LV95 [e, n]
+  h: number; // metres
+  agl?: boolean; // h above ground level (default) or absolute
+}
+
+interface PathDef {
+  label: string;
+  seconds: number;
+  keys: Key[];
+  look: Key[]; // look-at targets (same count as keys)
+}
+
+export const BENCH_PATHS: Record<string, PathDef> = {
+  valley: {
+    label: 'Vol bas dans la vallée de Lauterbrunnen',
+    seconds: 30,
+    keys: [
+      { at: 'interlaken', h: 250 },
+      { at: [2634700, 1166000], h: 150 },
+      { at: 'lauterbrunnen', h: 120 },
+      { at: [2636300, 1157000], h: 150 },
+      { at: [2637300, 1153600], h: 250 },
+    ],
+    look: [
+      { at: 'lauterbrunnen', h: 300 },
+      { at: 'lauterbrunnen', h: 200 },
+      { at: [2636300, 1157000], h: 200 },
+      { at: 'jungfrau', h: 0 },
+      { at: 'jungfrau', h: 0 },
+    ],
+  },
+  flyover: {
+    label: 'Survol haute altitude Eiger / Mönch / Jungfrau',
+    seconds: 30,
+    keys: [
+      { at: 'grindelwald', h: 4300, agl: false },
+      { at: 'eiger', h: 4600, agl: false },
+      { at: 'monch', h: 4700, agl: false },
+      { at: 'jungfrau', h: 4800, agl: false },
+      { at: 'murren', h: 4200, agl: false },
+    ],
+    look: [
+      { at: 'eiger', h: 0 },
+      { at: 'monch', h: 0 },
+      { at: 'jungfrau', h: 0 },
+      { at: 'lauterbrunnen', h: 0 },
+      { at: 'interlaken', h: 0 },
+    ],
+  },
+  walk: {
+    label: 'Marche près de Kleine Scheidegg',
+    seconds: 30,
+    keys: [
+      { at: [2639600, 1159800], h: 1.7 },
+      { at: [2639800, 1159650], h: 1.7 },
+      { at: [2640043, 1159470], h: 1.7 },
+      { at: [2640250, 1159300], h: 1.7 },
+      { at: [2640400, 1159150], h: 1.7 },
+    ],
+    look: [
+      { at: 'eiger', h: 0 },
+      { at: 'monch', h: 0 },
+      { at: 'jungfrau', h: 0 },
+      { at: 'lauterbrunnen', h: 0 },
+      { at: 'eiger', h: 0 },
+    ],
+  },
+};
+
+export function resolvePath(name: string, heightAt: (x: number, z: number) => number) {
+  const def = BENCH_PATHS[name];
+  if (!def) throw new Error(`unknown path "${name}" (${Object.keys(BENCH_PATHS).join(', ')})`);
+  const toWorld = (k: Key) => {
+    const [e, n] = typeof k.at === 'string' ? [POIS[k.at].e, POIS[k.at].n] : k.at;
+    const w = lv95ToWorld(e, n);
+    const y = k.agl === false ? k.h : heightAt(w.x, w.z) + k.h;
+    return new Vector3(w.x, y, w.z);
+  };
+  const pos = new CatmullRomCurve3(def.keys.map(toWorld), false, 'centripetal');
+  const look = new CatmullRomCurve3(def.look.map(toWorld), false, 'centripetal');
+  return { def, pos, look };
+}
