@@ -10,6 +10,7 @@ import { startBridge } from './agent/bridge';
 import { registerBuiltinCommands } from './agent/commands';
 import { TimeOfDay } from './sky/time-of-day';
 import { Atmosphere } from './sky/atmosphere';
+import { TerrainShadows } from './lighting/terrain-shadows';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
 
@@ -41,11 +42,16 @@ async function main() {
   const time = engine.add(new TimeOfDay());
   const terrain = engine.add(new Terrain(progress));
   const atmosphere = engine.add(new Atmosphere(time));
+  const terrainShadows = engine.add(new TerrainShadows(terrain, time));
   engine.add(new Post());
   engine.add({ name: 'player', update: (ctx) => freeCam.update(ctx.dt) });
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
+  // sun visibility = heightfield shadows (custom shadow node: no shadow map rendering for the terrain)
+  engine.renderer.shadowMap.enabled = true;
+  atmosphere.sunLight.castShadow = true;
+  (atmosphere.sunLight.shadow as any).shadowNode = terrainShadows.shadowNode;
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
 
   // Initial view: above Wengen, looking at the Jungfrau.
@@ -62,7 +68,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows };
   (window as any).app = app;
   registerBuiltinCommands(app);
 

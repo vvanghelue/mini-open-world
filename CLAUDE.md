@@ -11,6 +11,10 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - GPU timestamp queries are unreliable on Apple (passes overlap) → measure by A/B: `node tools/bench.mjs --set=key=value`.
   Bench runs are noisy (±0.5 ms): repeat before concluding.
 - `cpu` in stats includes time blocked in `queue.submit` (GPU backpressure). Use `tools/profile.mjs` to see real JS cost.
+- Uncapped Chrome shows periodic 10–14 ms interval spikes (~4/s) even on an empty WebGPU page
+  (`tools/dev/minimal-probe.mjs`): uncapped p99 is NOT a hitch metric. Judge hitches by JS allocations
+  (`tools/alloc-profile.mjs`, keep garbage/frame low) and by vsync smoothness.
+- `tools/dev/spikes.mjs 'a.b=1,...'` counts >8 ms frames per settings variant (diagnostics).
 
 ## Run
 - `npm run dev` (or preview_start "dev") → http://localhost:5173 (Chrome only, WebGPU).
@@ -45,4 +49,5 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - Use `float(x)` for numeric args where TSL types require Nodes (e.g. `.level(float(0))`).
 - TSL expressions are lazy: `.toVar()` any value read before a variable it depends on is mutated (loop accumulators!).
 - Nested `Loop`s: give explicit names `Loop({start,end,name:'j'} as any, ({j}) => …)` or inner `i` shadows outer.
+- Vite ignores files created in `public/data/` after it started (watch exclusion): restart the dev server after `npm run data`.
 - Reversed depth buffer is on: build frustums with `camera.reversedDepth`.

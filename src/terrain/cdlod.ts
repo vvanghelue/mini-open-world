@@ -39,9 +39,9 @@ export class CdlodSelector {
 
   private nodeBox(level: number, ix: number, iz: number) {
     const size = LEAF_SIZE * (1 << level);
-    const [lo, hi] = this.data.nodeBounds(level, ix, iz);
-    _box.min.set(-this.half + ix * size, lo - this.margin, -this.half + iz * size);
-    _box.max.set(_box.min.x + size, hi + this.margin, _box.min.z + size);
+    this.data.nodeBounds(level, ix, iz);
+    _box.min.set(-this.half + ix * size, this.data.boundsMin - this.margin, -this.half + iz * size);
+    _box.max.set(_box.min.x + size, this.data.boundsMax + this.margin, _box.min.z + size);
     return _box;
   }
 

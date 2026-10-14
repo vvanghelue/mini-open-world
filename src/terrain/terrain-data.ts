@@ -197,10 +197,13 @@ export class TerrainData {
     }
   }
 
-  /** Min/max height of quadtree node (level 0 = leaf) with integer coords (ix, iz) at that level. */
-  nodeBounds(level: number, ix: number, iz: number): [number, number] {
+  /** Min/max height of quadtree node (level 0 = leaf) with integer coords (ix, iz), written to boundsMin/Max. */
+  boundsMin = 0;
+  boundsMax = 0;
+  nodeBounds(level: number, ix: number, iz: number) {
     const g = this.minMax[level];
     const i = iz * g.n + ix;
-    return [g.min[i], g.max[i]];
+    this.boundsMin = g.min[i];
+    this.boundsMax = g.max[i];
   }
 }

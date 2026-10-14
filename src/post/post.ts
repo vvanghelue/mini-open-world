@@ -12,7 +12,7 @@ export const postSettings = settings.group('post', 'Post-traitement', {
   upscaler: { value: 'taau', options: { 'TAAU (temporel)': 'taau', 'Bilinéaire': 'bilinear' }, label: 'Upscaling' },
   sharpen: { value: 0.25, min: 0, max: 1.5, step: 0.05, label: 'Netteté' },
   exposure: { value: 1, min: 0.05, max: 8, step: 0.01, label: 'Exposition' },
-  toneMapping: { value: 'agx', options: { AgX: 'agx', ACES: 'aces', Neutral: 'neutral' }, label: 'Tone mapping' },
+  toneMapping: { value: 'aces', options: { AgX: 'agx', ACES: 'aces', Neutral: 'neutral' }, label: 'Tone mapping' },
 });
 
 const TONE: Record<string, THREE.ToneMapping> = {

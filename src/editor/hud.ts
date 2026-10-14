@@ -2,6 +2,11 @@
 import { Vector2 } from 'three/webgpu';
 import type { Engine } from '../core/engine';
 import { renderSettings } from '../core/engine';
+import { settings } from '../core/settings';
+
+export const uiSettings = settings.group('ui', 'Interface', {
+  hud: { value: true, label: 'Afficher les stats (HUD)' },
+});
 
 const _size = new Vector2();
 
@@ -31,7 +36,8 @@ export class Hud {
   }
 
   update(now: number) {
-    if (now - this.last < 250) return;
+    this.element.style.display = uiSettings.hud ? '' : 'none';
+    if (!uiSettings.hud || now - this.last < 250) return;
     this.last = now;
     const s = this.engine.stats.summary();
     this.engine.renderer.getDrawingBufferSize(_size);

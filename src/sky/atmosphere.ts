@@ -80,8 +80,8 @@ export class Atmosphere implements System {
   readonly transLUT = storageTex(TRANS_W, TRANS_H);
   readonly msLUT = storageTex(MS_RES, MS_RES);
   readonly skyLUT = storageTex(SKY_W, SKY_H, true);
-  readonly apScatter = storage3D(AP_RES, AP_RES, AP_SLICES);
-  readonly apTrans = storage3D(AP_RES, AP_RES, AP_SLICES);
+  /** aerial perspective: x in [0, AP_RES) = in-scattering, x in [AP_RES, 2*AP_RES) = transmittance */
+  readonly apVolume = storage3D(AP_RES * 2, AP_RES, AP_SLICES);
 
   // uniforms
   private uRayleigh = uniform(new THREE.Vector3());
@@ -113,6 +113,7 @@ export class Atmosphere implements System {
   private engine!: Engine;
   private _v = new THREE.Vector3();
   private _t = [0, 0, 0];
+  private _params = { rayleigh: 1, mie: 1, ozone: 1 };
 
   /** TSL: sky radiance (pre-exposed) for a world direction, without sun/moon disks. */
   skyNode!: (dir: any) => any;
@@ -369,8 +370,8 @@ export class Atmosphere implements System {
       const tG = raySphere(ro, rd, Rg);
       const tMax = select(tG.greaterThan(0), min(tG, dist), dist);
       const { L, T } = integrate(ro, rd, tMax, 12);
-      textureStore(this.apScatter, uvec3(x, y, z), vec4(L, 1)).toWriteOnly();
-      textureStore(this.apTrans, uvec3(x, y, z), vec4(T, 1)).toWriteOnly();
+      textureStore(this.apVolume, uvec3(x, y, z), vec4(L, 1)).toWriteOnly();
+      textureStore(this.apVolume, uvec3(x.add(AP_RES), y, z), vec4(T, 1)).toWriteOnly();
     })().compute(AP_RES * AP_RES * AP_SLICES).setName('atmoAerialPerspective');
 
     // sky LUT lookup for a direction (pre-exposed)
@@ -496,9 +497,10 @@ export class Atmosphere implements System {
     return Fn(() => {
       const dKm = length(positionWorld.sub(cameraPosition)).div(1000);
       const w = sqrt(clamp(dKm.div(AP_MAX_KM), 0, 1));
-      const uvw = vec3(screenUV.x, screenUV.y, w);
-      const S = texture3D(this.apScatter, uvw, float(0)).rgb;
-      const T = texture3D(this.apTrans, uvw, float(0)).rgb;
+      // keep each half's samples inside its own texels (no bleeding across the seam)
+      const us = clamp(screenUV.x.mul(AP_RES), 0.5, AP_RES - 0.5).div(AP_RES * 2);
+      const S = texture3D(this.apVolume, vec3(us, screenUV.y, w), float(0)).rgb;
+      const T = texture3D(this.apVolume, vec3(us.add(0.5), screenUV.y, w), float(0)).rgb;
       // fade in over the first slice to avoid a constant offset very close to the camera
       const k = clamp(w.mul(AP_SLICES * 2), 0, 1).mul(this.uAP);
       const Tk = mix(vec3(1), T, k);
@@ -533,7 +535,11 @@ export class Atmosphere implements System {
     const phase = this.time.moonPhase;
     const moonFrac = Math.pow((1 - Math.cos(2 * Math.PI * phase)) / 2, 1.5);
     const moonLux = MOON_ILLUMINANCE * moonFrac * Math.max(0, moon.y) * 0.8;
-    transmittanceCPU(camKm, sun.y, { rayleigh: s.rayleigh, mie: s.haze, ozone: s.ozone }, this._t);
+    const params = this._params;
+    params.rayleigh = s.rayleigh;
+    params.mie = s.haze;
+    params.ozone = s.ozone;
+    transmittanceCPU(camKm, sun.y, params, this._t);
     this.sunTransLum = (0.2126 * this._t[0] + 0.7152 * this._t[1] + 0.0722 * this._t[2]) * THREE.MathUtils.smoothstep(sun.y, -0.01, 0.02);
     // horizontal illuminance: measured sky irradiance (from the SH capture) when available, else a clear-sky table
     const sunHoriz = SUN_ILLUMINANCE * s.sunIntensity * Math.max(0, sun.y);
@@ -570,7 +576,6 @@ export class Atmosphere implements System {
     r.compute(this.computeAP);
 
     // --- main directional light: sun by day, moon by night
-    const params = { rayleigh: s.rayleigh, mie: s.haze, ozone: s.ozone };
     this.mainIsMoon = sunElev < -4 && moon.y > 0;
     const dir = this.mainIsMoon ? moon : sun;
     transmittanceCPU(camKm, dir.y, params, this._t);

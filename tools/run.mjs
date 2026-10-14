@@ -36,7 +36,13 @@ const browser = await puppeteer.launch({
 try {
   const page = await browser.newPage();
   await page.goto(`${base}/?bench${opts.query ? '&' + opts.query : ''}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.app?.engine?.frame > 60, { timeout: 120000, polling: 250 });
+  try {
+    await page.waitForFunction(() => window.app?.engine?.frame > 60, { timeout: Number(opts.timeout || 90000), polling: 250 });
+  } catch {
+    const diag = await page.evaluate(() => ({ loading: document.getElementById('loading-text')?.textContent, logs: window.agent?.logs?.(0)?.filter((l) => l.level !== 'log').slice(-6) }));
+    console.log('APP DID NOT START', JSON.stringify(diag, null, 1));
+    throw new Error('startup failed');
+  }
   if (opts.wait) await new Promise((r) => setTimeout(r, Number(opts.wait)));
   for (const c of cmds) {
     const [name, ...rest] = c.split(/\s+/);

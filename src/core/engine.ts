@@ -50,11 +50,12 @@ export class Engine {
   private gpuPending = false;
   private afterFrameCallbacks: Array<() => void> = [];
 
-  private constructor(container: HTMLElement) {
+  private constructor(container: HTMLElement, requiredLimits: Record<string, number>) {
     this.container = container;
     this.renderer = new THREE.WebGPURenderer({
       antialias: false,
       reversedDepthBuffer: true,
+      requiredLimits,
       // GPU timestamp queries are unreliable on Apple GPUs (overlapping passes); opt-in with ?gpuTiming
       trackTimestamp: new URLSearchParams(location.search).has('gpuTiming'),
       powerPreference: 'high-performance',
@@ -64,7 +65,26 @@ export class Engine {
   }
 
   static async create(container: HTMLElement): Promise<Engine> {
-    const engine = new Engine(container);
+    // raise the limits we rely on (terrain shaders sample many textures, vegetation uses large buffers)
+    const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) throw new Error('WebGPU indisponible : ce projet nécessite Chrome avec WebGPU.');
+    const want: Record<string, number> = {
+      maxSampledTexturesPerShaderStage: 32,
+      maxStorageTexturesPerShaderStage: 8,
+      maxStorageBuffersPerShaderStage: 10,
+      maxStorageBufferBindingSize: 512 * 1024 * 1024,
+      maxBufferSize: 1024 * 1024 * 1024,
+      maxTextureDimension2D: 16384,
+      maxTextureArrayLayers: 256,
+      maxComputeInvocationsPerWorkgroup: 256,
+      maxComputeWorkgroupSizeX: 256,
+    };
+    const requiredLimits: Record<string, number> = {};
+    for (const [k, v] of Object.entries(want)) {
+      const max = (adapter.limits as any)[k];
+      if (typeof max === 'number') requiredLimits[k] = Math.min(v, max);
+    }
+    const engine = new Engine(container, requiredLimits);
     await engine.renderer.init();
     if (!(engine.renderer.backend as any).isWebGPUBackend) {
       throw new Error('WebGPU indisponible : ce projet nécessite Chrome avec WebGPU.');

@@ -2,13 +2,15 @@
 // heightmaps, fragment normals from precomputed normal maps, procedural/ortho-based materials.
 import * as THREE from 'three/webgpu';
 import {
-  Fn, attribute, positionLocal, positionWorld, uniform, texture, vec2, vec3, float, fract, clamp, mix, smoothstep,
-  distance, cameraPosition, exp2, max, abs, sqrt, dot, transformNormalToView, varying,
+  Fn, attribute, positionLocal, uniform, texture, vec3, float, fract, clamp, mix, smoothstep,
+  distance, cameraPosition, exp2, max, abs, sqrt, dot, varying, int,
 } from 'three/tsl';
 import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
 import { TerrainData, CORE_BLEND } from './terrain-data';
 import { CdlodSelector, PATCH_N, MAX_PATCHES } from './cdlod';
+import { loadTerrainTextures, TerrainTextures } from './terrain-textures';
+import { applyTerrainMaterial } from './terrain-material';
 
 export const terrainSettings = settings.group('terrain', 'Terrain', {
   lodDistance: { value: 260, min: 150, max: 800, step: 10, label: 'Distance de détail (m)', help: 'Portée du niveau de détail le plus fin ; chaque niveau suivant double.' },
@@ -86,8 +88,11 @@ export class Terrain implements System {
 
   // Exposed TSL helpers for other systems (vegetation, water, shadows)
   heightNode!: (xz: any) => any;
+  /** TSL: forest cover fraction (0..1) at world xz. */
+  forestNode!: (xz: any) => any;
   normalNode!: (xz: any) => any;
   coreHeightTex!: THREE.DataTexture;
+  textures!: TerrainTextures;
   farHeightTex!: THREE.DataTexture;
 
   constructor(private onProgress?: (msg: string, frac: number) => void) {}
@@ -145,25 +150,17 @@ export class Terrain implements System {
       return vec3(w.x, sampleHeight(w), w.y);
     })();
 
+    this.onProgress?.('Terrain : textures', 1);
+    this.textures = await loadTerrainTextures();
     const mat = new THREE.MeshStandardNodeMaterial();
     mat.positionNode = positionNode;
-    const nWorld = sampleNormal(positionWorld.xz);
-    mat.normalNode = transformNormalToView(nWorld);
-
-    // Placeholder procedural albedo (replaced by ortho/land-cover materials).
-    const h = positionWorld.y;
-    const slope = float(1).sub(nWorld.y);
-    const grass = vec3(0.16, 0.24, 0.07);
-    const forest = vec3(0.05, 0.09, 0.04);
-    const rock = vec3(0.32, 0.3, 0.27);
-    const snow = vec3(0.85, 0.87, 0.9);
-    const lowland = mix(grass, forest, smoothstep(900, 1300, h).mul(float(1).sub(smoothstep(1700, 2000, h))));
-    let col = mix(lowland, rock, smoothstep(0.25, 0.45, slope));
-    col = mix(col, rock, smoothstep(2100, 2500, h).mul(0.8));
-    col = mix(col, snow, smoothstep(2600, 3000, h).mul(float(1).sub(smoothstep(0.35, 0.55, slope))));
-    mat.colorNode = col;
-    mat.roughnessNode = float(0.92);
-    mat.metalnessNode = float(0);
+    applyTerrainMaterial(mat, { textures: this.textures, coreSize: m.core.size, farSize: m.far.size, coreWeight, macroNormal: sampleNormal });
+    const tx = this.textures;
+    this.forestNode = Fn(([xz]: [any]) => {
+      const c = texture(tx.landcover, xz.div(uCoreSize).add(0.5)).depth(int(0) as any).level(float(0)).r;
+      const f = texture(tx.farLandcover, xz.div(uFarSize).add(0.5)).depth(int(0) as any).level(float(0)).r;
+      return mix(f, c, coreWeight(xz));
+    });
     this.material = mat;
 
     this.fullMesh = new THREE.Mesh(makeGrid(PATCH_N), mat);

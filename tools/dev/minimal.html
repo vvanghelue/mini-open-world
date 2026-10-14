@@ -1,0 +1,12 @@
+<!doctype html><html><body style="margin:0"><canvas id="c" style="width:100vw;height:100vh;display:block"></canvas>
+<script type="module">
+const adapter = await navigator.gpu.requestAdapter(); const device = await adapter.requestDevice();
+const c = document.getElementById('c'); c.width = innerWidth; c.height = innerHeight;
+const ctx = c.getContext('webgpu'); const format = navigator.gpu.getPreferredCanvasFormat(); ctx.configure({ device, format });
+const iv = []; let last = performance.now(); let frame = 0;
+function loop() { const now = performance.now(); iv.push(now - last); last = now; frame++;
+  const enc = device.createCommandEncoder(); const pass = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: { r: frame % 2, g: 0.3, b: 0.5, a: 1 } }] }); pass.end(); device.queue.submit([enc.finish()]);
+  requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+window.measure = async () => { iv.length = 0; await new Promise(r => setTimeout(r, 3000)); const sp = iv.filter(v => v > 8); return { frames: iv.length, mean: +(iv.reduce((a, b) => a + b, 0) / iv.length).toFixed(3), spikes: sp.length, worst: Math.max(0, ...sp).toFixed(1) }; };
+</script></body></html>
