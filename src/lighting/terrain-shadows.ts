@@ -159,29 +159,46 @@ export class TerrainShadows implements System {
 
   // ---------------------------------------------------------------- sampling
   private buildSampler() {
+    this.visibilityAt = Fn(([pw]: [any]) => this.visibilityImpl(pw));
+    return Fn(() => this.visibilityImpl(positionWorld))();
+  }
+
+  /** TSL: sun visibility at an arbitrary world position (usable in vertex shaders). */
+  visibilityAt!: (p: any) => any;
+
+  private visibilityImpl(pw: any) {
+    // pick the finest level containing the point; blend with the next level only inside the border band
     return Fn(() => {
-      const p = positionWorld;
+      const p = pw;
       const dist = length(cameraPosition.sub(p));
       const bias = max(float(0.6), dist.mul(0.003));
       const vis = float(1).toVar();
-      const weightLeft = float(1).toVar();
-      const result = float(0).toVar();
-      for (let i = 0; i < this.levels.length; i++) {
-        const L = this.levels[i];
+      const evalLevel = (L: Level) => {
         const uv = p.xz.sub(L.uOrigin).div(L.uSize);
-        // fade near the level border so levels blend
-        const edge = min(min(uv.x, uv.y), min(float(1).sub(uv.x), float(1).sub(uv.y)));
-        const wLevel = i === this.levels.length - 1 ? float(1) : smoothstep(0.0, 0.08, edge);
         const cs = L.frontNode.sample(uv).level(float(0)).xy;
         const texel = L.uSize.div(L.res);
         const w = max(texel.mul(0.6), cs.y.mul(0.0047).mul(this.uSoft)).add(0.3);
-        const s = smoothstep(w.negate(), w, p.y.add(bias).sub(cs.x));
-        const take = weightLeft.mul(wLevel);
-        result.addAssign(s.mul(take));
-        weightLeft.subAssign(take);
-      }
-      vis.assign(mix(float(1), result, this.uEnabled));
-      return vis;
+        return smoothstep(w.negate(), w, p.y.add(bias).sub(cs.x));
+      };
+      const edgeOf = (L: Level) => {
+        const uv = p.xz.sub(L.uOrigin).div(L.uSize);
+        return min(min(uv.x, uv.y), min(float(1).sub(uv.x), float(1).sub(uv.y)));
+      };
+      const [n, m, f] = this.levels;
+      const eN = edgeOf(n).toVar();
+      const eM = edgeOf(m).toVar();
+      If(eN.greaterThan(0.08), () => {
+        vis.assign(evalLevel(n));
+      }).ElseIf(eN.greaterThan(0), () => {
+        vis.assign(mix(evalLevel(m), evalLevel(n), smoothstep(0, 0.08, eN)));
+      }).ElseIf(eM.greaterThan(0.08), () => {
+        vis.assign(evalLevel(m));
+      }).ElseIf(eM.greaterThan(0), () => {
+        vis.assign(mix(evalLevel(f), evalLevel(m), smoothstep(0, 0.08, eM)));
+      }).Else(() => {
+        vis.assign(evalLevel(f));
+      });
+      return mix(float(1), vis, this.uEnabled);
     })();
   }
 

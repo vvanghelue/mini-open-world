@@ -98,6 +98,7 @@ export class Atmosphere implements System {
   private uPreExp = uniform(1);
   private uStars = uniform(1);
   private uAP = uniform(1);
+  private uAmbient = uniform(1);
   private uMoonPhaseVec = uniform(new THREE.Vector3()); // sun direction for moon shading
   private uCorners = [0, 1, 2, 3].map(() => uniform(new THREE.Vector3()));
 
@@ -493,18 +494,36 @@ export class Atmosphere implements System {
   }
 
   /** Fog node: applies aerial perspective (in-scattering + extinction) to every lit material. */
+  /** TSL: aerial perspective for a world position seen at a screen uv -> { S (in-scatter), T (transmittance) }. */
+  aerialPerspective(pw: any, suv: any) {
+    const dKm = length(pw.sub(cameraPosition)).div(1000);
+    const w = sqrt(clamp(dKm.div(AP_MAX_KM), 0, 1));
+    // keep each half's samples inside its own texels (no bleeding across the seam)
+    const us = clamp(suv.x.mul(AP_RES), 0.5, AP_RES - 0.5).div(AP_RES * 2);
+    const S = texture3D(this.apVolume, vec3(us, suv.y, w), float(0)).rgb;
+    const T = texture3D(this.apVolume, vec3(us.add(0.5), suv.y, w), float(0)).rgb;
+    // fade in over the first slice to avoid a constant offset very close to the camera
+    const k = clamp(w.mul(AP_SLICES * 2), 0, 1).mul(this.uAP);
+    return { S: S.mul(k), T: mix(vec3(1), T, k) };
+  }
+
+  /** TSL: sky irradiance (pre-exposed) for a world normal, from the GPU SH buffer. */
+  skyIrradiance(n: any) {
+    const sh = this.shNode;
+    const c = (i: number) => sh.element(i).xyz;
+    const x = n.x, y = n.y, z = n.z;
+    let r = c(0).mul(0.886227);
+    r = r.add(c(1).mul(2.0 * 0.511664).mul(y)).add(c(2).mul(2.0 * 0.511664).mul(z)).add(c(3).mul(2.0 * 0.511664).mul(x));
+    r = r.add(c(4).mul(2.0 * 0.429043).mul(x).mul(y)).add(c(5).mul(2.0 * 0.429043).mul(y).mul(z));
+    r = r.add(c(6).mul(z.mul(z).mul(0.743125).sub(0.247708))).add(c(7).mul(2.0 * 0.429043).mul(x).mul(z));
+    r = r.add(c(8).mul(0.429043).mul(x.mul(x).sub(y.mul(y))));
+    return r.max(0).mul(this.uAmbient);
+  }
+
   private fogNode() {
     return Fn(() => {
-      const dKm = length(positionWorld.sub(cameraPosition)).div(1000);
-      const w = sqrt(clamp(dKm.div(AP_MAX_KM), 0, 1));
-      // keep each half's samples inside its own texels (no bleeding across the seam)
-      const us = clamp(screenUV.x.mul(AP_RES), 0.5, AP_RES - 0.5).div(AP_RES * 2);
-      const S = texture3D(this.apVolume, vec3(us, screenUV.y, w), float(0)).rgb;
-      const T = texture3D(this.apVolume, vec3(us.add(0.5), screenUV.y, w), float(0)).rgb;
-      // fade in over the first slice to avoid a constant offset very close to the camera
-      const k = clamp(w.mul(AP_SLICES * 2), 0, 1).mul(this.uAP);
-      const Tk = mix(vec3(1), T, k);
-      return vec4(output.rgb.mul(Tk).add(S.mul(k)), output.a);
+      const ap = this.aerialPerspective(positionWorld, screenUV);
+      return vec4(output.rgb.mul(ap.T).add(ap.S), output.a);
     })();
   }
 
@@ -592,6 +611,7 @@ export class Atmosphere implements System {
     // --- sky irradiance SH (GPU, consumed directly by SkyLightNode)
     r.compute(this.computeSH);
     this.skyLight.intensity = s.ambient;
+    this.uAmbient.value = s.ambient;
   }
 
   /** Debug/calibration: reads back the measured horizontal sky irradiance (absolute lux). Slow (async map). */

@@ -7,7 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    watch: { ignored: ['**/data-raw/**', '**/public/data/**', '**/screenshots/**', '**/bench-results/**'] },
+    // public/data is watched so newly generated data files are served without a restart
+    watch: { ignored: ['**/data-raw/**', '**/screenshots/**', '**/bench-results/**'] },
   },
   build: { target: 'es2022' },
   esbuild: { target: 'es2022' },

@@ -49,5 +49,5 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - Use `float(x)` for numeric args where TSL types require Nodes (e.g. `.level(float(0))`).
 - TSL expressions are lazy: `.toVar()` any value read before a variable it depends on is mutated (loop accumulators!).
 - Nested `Loop`s: give explicit names `Loop({start,end,name:'j'} as any, ({j}) => …)` or inner `i` shadows outer.
-- Vite ignores files created in `public/data/` after it started (watch exclusion): restart the dev server after `npm run data`.
+- Avoid `select(cond, int(a), int(b))` chains in compute (wrong result observed): compute indices with float math (`step`) then `int()`.
 - Reversed depth buffer is on: build frustums with `camera.reversedDepth`.

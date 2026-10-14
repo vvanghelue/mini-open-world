@@ -18,7 +18,7 @@ export interface TerrainTextures {
   layers: LayerInfo[];
 }
 
-async function loadBitmapTexture(url: string, srgb: boolean) {
+export async function loadBitmapTexture(url: string, srgb: boolean) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status} (run "npm run data")`);
   const blob = await res.blob();

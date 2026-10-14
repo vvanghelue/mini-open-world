@@ -22,7 +22,7 @@ export class CdlodSelector {
   private cam = new Vector3();
   private frustum!: Frustum;
   /** Vertical margin (m) added to node bounds for procedural displacement. */
-  margin = 4;
+  margin = 25; // procedural detail + far canopy shell
 
   constructor(private data: TerrainData) {
     this.half = data.worldSize / 2;

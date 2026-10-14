@@ -3,7 +3,7 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn, attribute, positionLocal, uniform, texture, vec3, float, fract, clamp, mix, smoothstep,
-  distance, cameraPosition, exp2, max, abs, sqrt, dot, varying, int,
+  distance, cameraPosition, exp2, max, abs, sqrt, dot, varying, int, If,
 } from 'three/tsl';
 import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
@@ -17,6 +17,8 @@ export const terrainSettings = settings.group('terrain', 'Terrain', {
   morphStart: { value: 0.66, min: 0.4, max: 0.9, step: 0.01, label: 'Début du morphing' },
   wireframe: { value: false, label: 'Fil de fer' },
   freezeLod: { value: false, label: 'Figer le LOD' },
+  canopyShell: { value: 20, min: 0, max: 35, step: 1, label: 'Coque canopée lointaine (m)', help: 'Au-delà de la distance des arbres, le relief des forêts est rehaussé de la hauteur des arbres.' },
+  canopyStart: { value: 2200, min: 300, max: 5000, step: 50, label: 'Début coque canopée (m)' },
   patches: { value: 0, readonly: true, label: 'Patches' },
 });
 
@@ -85,6 +87,8 @@ export class Terrain implements System {
   private projView = new THREE.Matrix4();
   private uLodDistance = uniform(terrainSettings.lodDistance);
   private uMorphStart = uniform(terrainSettings.morphStart);
+  private uCanopyShell = uniform(terrainSettings.canopyShell);
+  private uCanopyStart = uniform(terrainSettings.canopyStart);
 
   // Exposed TSL helpers for other systems (vegetation, water, shadows)
   heightNode!: (xz: any) => any;
@@ -147,7 +151,13 @@ export class Terrain implements System {
       vMorph.assign(morph);
       const g = grid.sub(fract(grid.mul(0.5)).mul(2.0).mul(morph));
       const w = patch.xy.add(g.mul(spacing));
-      return vec3(w.x, sampleHeight(w), w.y);
+      const h = sampleHeight(w).toVar();
+      // far canopy shell: forests beyond the tree-rendering distance are raised by the canopy height
+      const shell = smoothstep(this.uCanopyStart, this.uCanopyStart.add(220), d).mul(this.uCanopyShell);
+      If(shell.greaterThan(0.01), () => {
+        h.addAssign(this.forestNode(w).mul(shell));
+      });
+      return vec3(w.x, h, w.y);
     })();
 
     this.onProgress?.('Terrain : textures', 1);
@@ -175,6 +185,8 @@ export class Terrain implements System {
 
     settings.on('terrain.lodDistance', (v) => (this.uLodDistance.value = v as number));
     settings.on('terrain.morphStart', (v) => (this.uMorphStart.value = v as number));
+    settings.on('terrain.canopyShell', (v) => (this.uCanopyShell.value = v as number));
+    settings.on('terrain.canopyStart', (v) => (this.uCanopyStart.value = v as number));
     settings.on('terrain.wireframe', (v) => {
       mat.wireframe = v as boolean;
       mat.needsUpdate = true;
