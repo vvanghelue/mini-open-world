@@ -18,7 +18,12 @@ for (const a of args) {
 }
 const base = opts.url || 'http://localhost:5173';
 const width = Number(opts.width || 2560), height = Number(opts.height || 1440);
-const parse = (v) => (v === 'true' ? true : v === 'false' ? false : v !== '' && !isNaN(Number(v)) ? Number(v) : /^[[{]/.test(v) ? JSON.parse(v) : v);
+const parse = (v) => {
+  if (v === 'true' || v === 'false') return v === 'true';
+  if (v !== '' && !isNaN(Number(v))) return Number(v);
+  if (/^[[{]/.test(v)) try { return JSON.parse(v); } catch {}
+  return v;
+};
 
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mow-run-'));
 const browser = await puppeteer.launch({
@@ -36,7 +41,8 @@ try {
   for (const c of cmds) {
     const [name, ...rest] = c.split(/\s+/);
     let a = {};
-    if (rest.length === 1 && /^[[{]/.test(rest[0])) a = JSON.parse(rest[0]);
+    if (name === 'eval') a = { code: c.slice(5) };
+    else if (rest.length === 1 && /^[[{]/.test(rest[0])) a = JSON.parse(rest[0]);
     else for (const r of rest) {
       const i = r.indexOf('=');
       if (i > 0) a[r.slice(0, i)] = parse(r.slice(i + 1));

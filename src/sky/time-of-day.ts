@@ -24,6 +24,9 @@ export class TimeOfDay implements System {
   /** Incremented whenever the sun moved noticeably (consumers re-bake lighting). */
   sunVersion = 0;
   private lastSun = new Vector3();
+  private lastHour = -1;
+  /** Change of the clock since last frame (hours); large values mean a manual jump. */
+  hourDelta = 0;
 
   update(ctx: FrameContext) {
     if (timeSettings.speed > 0 && ctx.dt > 0) {
@@ -34,6 +37,9 @@ export class TimeOfDay implements System {
       }
       timeSettings.hour = h;
     }
+    this.hourDelta = this.lastHour < 0 ? 0 : timeSettings.hour - this.lastHour;
+    if (this.hourDelta < -12) this.hourDelta += 24;
+    this.lastHour = timeSettings.hour;
     sunDirection(timeSettings.year, timeSettings.day, timeSettings.hour, this.sunDir);
     this.moonPhase = moonDirection(timeSettings.year, timeSettings.day, timeSettings.hour, this.moonDir);
     if (this.sunDir.dot(this.lastSun) < Math.cos(0.05 * Math.PI / 180)) {

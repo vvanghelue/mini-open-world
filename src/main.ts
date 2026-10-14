@@ -9,7 +9,7 @@ import { Hud } from './editor/hud';
 import { startBridge } from './agent/bridge';
 import { registerBuiltinCommands } from './agent/commands';
 import { TimeOfDay } from './sky/time-of-day';
-import { Sky } from './sky/sky';
+import { Atmosphere } from './sky/atmosphere';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
 
@@ -40,7 +40,7 @@ async function main() {
 
   const time = engine.add(new TimeOfDay());
   const terrain = engine.add(new Terrain(progress));
-  engine.add(new Sky(time));
+  const atmosphere = engine.add(new Atmosphere(time));
   engine.add(new Post());
   engine.add({ name: 'player', update: (ctx) => freeCam.update(ctx.dt) });
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
@@ -62,7 +62,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere };
   (window as any).app = app;
   registerBuiltinCommands(app);
 
