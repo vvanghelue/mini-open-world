@@ -58,8 +58,8 @@ export const BENCH_PATHS: Record<string, PathDef> = {
     seconds: 30,
     keys: [
       { at: [2635800, 1171200], h: 60 },
-      { at: [2638500, 1172300], h: 45 },
-      { at: [2641000, 1174500], h: 40 },
+      { at: [2638500, 1172300], h: 50 },
+      { at: [2641000, 1174500], h: 50 },
       { at: [2643500, 1175600], h: 50 },
       { at: [2646000, 1176800], h: 70 },
     ],
@@ -100,7 +100,20 @@ export function resolvePath(name: string, heightAt: (x: number, z: number) => nu
     const y = k.agl === false ? k.h : heightAt(w.x, w.z) + k.h;
     return new Vector3(w.x, y, w.z);
   };
-  const pos = new CatmullRomCurve3(def.keys.map(toWorld), false, 'centripetal');
+  const curve = new CatmullRomCurve3(def.keys.map(toWorld), false, 'centripetal');
   const look = new CatmullRomCurve3(def.look.map(toWorld), false, 'centripetal');
+  // the spline ignores the relief between keys: ground-relative paths are kept at least at their lowest key
+  // height above the terrain (a walk stays exactly at eye height)
+  const rel = def.keys.filter((k) => k.agl !== false);
+  const minAgl = rel.length ? Math.min(...rel.map((k) => k.h)) : -Infinity;
+  const walk = rel.length === def.keys.length && def.keys.every((k) => k.h < 3);
+  const pos = {
+    getPointAt(u: number, target: Vector3) {
+      curve.getPointAt(u, target);
+      const g = heightAt(target.x, target.z);
+      target.y = walk ? g + minAgl : Math.max(target.y, g + minAgl);
+      return target;
+    },
+  };
   return { def, pos, look };
 }

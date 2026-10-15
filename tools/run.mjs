@@ -2,7 +2,7 @@
 // Runs a sequence of agent commands in a dedicated headless Chrome (uncapped, 2560x1440 by default)
 // and prints each result. Useful for screenshots and diagnostics without touching the user's browser.
 //   node tools/run.mjs 'goto wengen' 'screenshot name=test' 'gpu-passes'
-//   options: --width= --height= --wait=<ms before first command>
+//   options: --width= --height= --wait=<ms before first command> --capped (vsync-limited, like a normal browser)
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -31,7 +31,7 @@ const browser = await puppeteer.launch({
   headless: opts.headful ? false : 'new',
   userDataDir,
   defaultViewport: { width, height, deviceScaleFactor: 1 },
-  args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', '--enable-unsafe-webgpu', '--enable-dawn-features=allow_unsafe_apis', '--no-first-run'],
+  args: [...(opts.capped ? [] : ['--disable-gpu-vsync', '--disable-frame-rate-limit']), '--enable-unsafe-webgpu', '--enable-dawn-features=allow_unsafe_apis', '--no-first-run'],
 });
 try {
   const page = await browser.newPage();

@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "agent": "node tools/agent.mjs",
     "bench": "node tools/bench.mjs",
-    "data": "node tools/data/build-all.mjs"
+    "data": "node tools/data/build-all.mjs",
+    "uncapped": "node tools/open-uncapped.mjs"
   },
   "dependencies": {
     "@tweakpane/plugin-essentials": "^0.2.1",

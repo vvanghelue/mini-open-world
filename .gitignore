@@ -6,3 +6,4 @@ public/data/
 *.log
 bench-results/
 screenshots/
+.chrome-uncapped

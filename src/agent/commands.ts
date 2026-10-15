@@ -154,6 +154,19 @@ export function registerBuiltinCommands(app: App) {
     return { path: file, bytes: blob.size };
   });
 
+  registerCommand('bench-path-check', 'Camera height above ground along a bench path: {path, samples=40} -> min AGL and per-sample AGL', ({ path, samples, _ }) => {
+    const name = path ?? _?.[0];
+    const { pos } = resolvePath(name, (x, z) => app.terrain.heightAt(x, z));
+    const n = samples ?? 40;
+    const agl: number[] = [];
+    for (let i = 0; i <= n; i++) {
+      pos.getPointAt(i / n, _v);
+      agl.push(Math.round(_v.y - app.terrain.heightAt(_v.x, _v.z)));
+    }
+    const min = Math.min(...agl);
+    return { min, atU: agl.indexOf(min) / n, agl: agl.join(' ') };
+  });
+
   registerCommand('bench', 'Run benchmark camera paths: {paths=[valley,flyover,walk], warmup=3, seconds, range=[u0,u1] (sub-section of the path)}', async ({ paths, warmup, seconds, range }) => {
     const [u0, u1]: [number, number] = range ?? [0, 1];
     const names: string[] = paths ?? Object.keys(BENCH_PATHS);
