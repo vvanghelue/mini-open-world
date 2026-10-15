@@ -200,8 +200,8 @@ export class DynamicResolution {
     }
 
     // uncapped: frame interval = frame cost
-    // aim below the budget: the p90 at 90 % of it keeps the tail of the distribution (p99) under the budget
-    const target = (1000 / renderSettings.targetFps) * 0.9;
+    // aim below the budget: p90 at 85 % of it keeps the tail (p95: GPU / compositor hiccups outside our JS) under it
+    const target = (1000 / renderSettings.targetFps) * 0.85;
     this.urgent = p90 > target * 1.3;
     if (p90 > target * 1.02) {
       // proportional step (pixel cost ~ scale^2), at least one step
