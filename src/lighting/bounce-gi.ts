@@ -24,7 +24,7 @@ import type { SkyVisibility } from './sky-visibility';
 export const giSettings = settings.group('gi', 'Rebond de lumière (GI)', {
   enabled: { value: true, label: 'Lumière réfléchie par le relief' },
   strength: { value: 1, min: 0, max: 3, step: 0.05, label: 'Intensité du rebond' },
-  rowsPerFrame: { value: 8, min: 1, max: 64, step: 1, label: 'Lignes recalculées / image' },
+  rowsPerFrame: { value: 2, min: 1, max: 64, step: 1, label: 'Lignes recalculées / image', help: 'Petites tranches : un recalcul étalé ne provoque pas d\'image lente.' },
   sunTolerance: { value: 1.5, min: 0.25, max: 10, step: 0.25, label: 'Recalcul si le soleil bouge de (°)' },
 });
 
@@ -78,6 +78,15 @@ export class BounceGI implements System {
     };
     this.far = mk('far', 256, m.far.size, 14);
     this.core = mk('core', 512, m.core.size, 20);
+    // compile all four bake pipelines now: compiled lazily, the second buffer's first use (first re-bake, mid-game)
+    // froze one frame for ~85 ms. One row each with a zero sun scale (writes zeros into not-yet-valid grids).
+    for (const g of [this.far, this.core]) {
+      for (const c of g.compute) {
+        g.uRow.value = 0;
+        c.count = g.res;
+        engine.renderer.compute(c);
+      }
+    }
     settings.on('gi.strength', (v) => (this.uStrength.value = v as number), true);
 
     // diagnostics: bounce vs sky irradiance (upward normal, pre-exposed) at a world point

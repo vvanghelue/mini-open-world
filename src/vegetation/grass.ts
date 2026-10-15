@@ -260,10 +260,9 @@ export class Grass implements System {
       this.uPlanes.array[i].set(p.normal.x, p.normal.y, p.normal.z, p.constant);
     }
     const r = this.engine.renderer;
-    r.compute(this.reset);
     (this.scatter as any).count = this.gridN * this.gridN;
-    r.compute(this.scatter);
-    r.compute(this.finalize);
+    // one encoder / one submission for the three passes (each submit can block on a busy GPU queue)
+    r.compute([this.reset, this.scatter, this.finalize] as any);
   }
 }
 

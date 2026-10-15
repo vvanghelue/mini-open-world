@@ -46,6 +46,11 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   (node materials force a FULL refresh of every object every frame — `NodeMaterialObserver.hasNode`). Fewer objects
   is the lever: empty forest draws are skipped (async instance-count readback), cascades alternate under load.
   Tried without gain: `BundleGroup` render bundles (no CPU gain, broke near trees) — don't retry.
+- Slow frames: `tools/dev/spike-cause.mjs` (Chrome trace: GC vs long main-thread tasks vs GPU wait, frame boundaries
+  from native FireAnimationFrame events — performance.measure timestamps are unusable in traces). Found and fixed:
+  lazily compiled compute pipelines (85 ms freeze on the GI's first re-bake: now pre-compiled at init) and one
+  submit per dispatch (grass/rocks/forest computes now one `renderer.compute([...])` each). Compile every compute
+  pipeline at init; batch dispatches of a system into one compute() call.
 - Thermal throttling measured with `tools/dev/thermal.mjs`: same workload 4.5 ms cold -> 8.9 ms after 2.5 min of
   uncapped load (x1.95), back to cold speed after ~1 min of rest. Uncapped stress numbers depend on the run order.
 - Uncapped Chrome has 1–3 interval spikes > 10 ms per second even on an empty page (`tools/dev/spike-rate.mjs`):

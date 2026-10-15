@@ -5,7 +5,7 @@ const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mow-gc-'));
 const lines = [];
 const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', userDataDir, dumpio: false,
   defaultViewport: { width: 2560, height: 1440, deviceScaleFactor: 1 },
-  args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', '--enable-unsafe-webgpu', '--no-first-run', '--js-flags=--trace-gc'] });
+  args: ['--disable-gpu-vsync', '--disable-frame-rate-limit', '--enable-unsafe-webgpu', '--no-first-run', '--js-flags=--trace-gc', '--enable-logging=stderr', '--v=0'] });
 const proc = browser.process();
 proc.stdout.on('data', (d) => lines.push(...String(d).split('\n')));
 proc.stderr.on('data', (d) => lines.push(...String(d).split('\n')));
