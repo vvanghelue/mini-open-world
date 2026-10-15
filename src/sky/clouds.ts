@@ -206,7 +206,9 @@ export class Clouds implements System {
         t1.assign(min(t1, t0.add(40000)));
         If(t1.greaterThan(t0), () => {
           const len = t1.sub(t0);
-          const steps = clamp(len.div(500), this.uSteps, 56);
+          // integer step count and a step length that covers the crossing exactly (a fractional count leaves a
+          // partial last step that jumps between pixels: banding)
+          const steps = clamp(len.div(500).ceil(), this.uSteps, 56);
           const dt = len.div(steps).max(30);
           const jitter = interleavedGradientNoise(screenCoordinate.xy.add(fract(time.mul(7.13)).mul(64)));
           const t = t0.add(dt.mul(jitter)).toVar();
