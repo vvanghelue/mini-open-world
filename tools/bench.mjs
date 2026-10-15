@@ -20,6 +20,7 @@ const base = opts.url || 'http://localhost:5173';
 const width = Number(opts.width || 2560);
 const height = Number(opts.height || 1440);
 const BUDGET_MS = Number(opts.budget || 10);
+const showTimeline = !!opts.timeline;
 const CHROME = opts.chrome || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 async function main() {
@@ -101,15 +102,16 @@ async function main() {
 
   let over = false;
   console.log(`viewport ${width}x${height}, load ${loadSec.toFixed(1)} s, GPU ${info.adapter?.description || info.adapter?.architecture || '?'}`);
-  console.log('path      frame mean/p50/p95/p99 (ms)        fps   cpu(js+wait)  draws   tris');
+  console.log('path      frame mean/p50/p95/p99 (ms)        fps  >10ms   cpu(js+wait)  draws   tris');
   for (const [name, r] of Object.entries(result)) {
     const f = r.frameMs, c = r.cpuMs, g = r.gpuMs;
     if (!f) continue;
     if (f.p95 > BUDGET_MS) over = true;
     void g;
     console.log(
-      `${name.padEnd(9)} ${f.mean.toFixed(2).padStart(6)} /${f.p50.toFixed(2).padStart(6)} /${f.p95.toFixed(2).padStart(6)} /${f.p99.toFixed(2).padStart(6)}   ${(1000 / f.mean).toFixed(0).padStart(4)}   ${c.mean.toFixed(2).padStart(8)}   ${String(r.drawCalls).padStart(5)}  ${(r.triangles / 1e6).toFixed(2)}M`,
+      `${name.padEnd(9)} ${f.mean.toFixed(2).padStart(6)} /${f.p50.toFixed(2).padStart(6)} /${f.p95.toFixed(2).padStart(6)} /${f.p99.toFixed(2).padStart(6)}   ${(1000 / f.mean).toFixed(0).padStart(4)}  ${(f.over10 ?? 0).toFixed(1).padStart(4)}%  ${c.mean.toFixed(2).padStart(8)}   ${String(r.drawCalls).padStart(5)}  ${(r.triangles / 1e6).toFixed(2)}M`,
     );
+    if (showTimeline && r.timeline) console.log('   segments mean/p95: ' + r.timeline.map((t) => `${t.mean.toFixed(1)}/${t.p95.toFixed(0)}`).join('  '));
   }
   if (errors.length) console.log(`console errors (${errors.length}):\n  ` + errors.slice(0, 5).join('\n  '));
   console.log(over ? `OVER BUDGET (p95 > ${BUDGET_MS} ms)` : `within budget (p95 <= ${BUDGET_MS} ms)`);

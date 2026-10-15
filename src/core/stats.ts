@@ -88,5 +88,16 @@ export function summarize(values: number[]) {
   const pick = (p: number) => a[Math.min(a.length - 1, Math.floor((p / 100) * a.length))];
   const mean = a.reduce((s, v) => s + v, 0) / a.length;
   const r = (x: number) => Math.round(x * 100) / 100;
-  return { n: a.length, mean: r(mean), p50: r(pick(50)), p95: r(pick(95)), p99: r(pick(99)), max: r(a[a.length - 1]) };
+  const over10 = (100 * a.filter((v) => v > 10).length) / a.length;
+  return { n: a.length, mean: r(mean), p50: r(pick(50)), p95: r(pick(95)), p99: r(pick(99)), max: r(a[a.length - 1]), over10: r(over10) };
+}
+
+/** Splits a series into `parts` consecutive chunks (path segments) and summarizes each: localized load vs random spikes. */
+export function timeline(values: number[], parts = 10) {
+  const out: { mean: number; p95: number; over10: number }[] = [];
+  for (let i = 0; i < parts; i++) {
+    const s = summarize(values.slice(Math.floor((i * values.length) / parts), Math.floor(((i + 1) * values.length) / parts)));
+    if (s) out.push({ mean: s.mean, p95: s.p95, over10: s.over10 });
+  }
+  return out;
 }

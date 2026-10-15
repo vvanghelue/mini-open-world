@@ -2,7 +2,7 @@
 import { Vector3 } from 'three/webgpu';
 import { registerCommand, listCommands, getLogs, writeProjectFile } from './bridge';
 import { settings, SettingValue } from '../core/settings';
-import { summarize } from '../core/stats';
+import { summarize, timeline } from '../core/stats';
 import { POIS, lv95ToWorld, worldToLV95 } from '../world/geo';
 import { resolvePath, BENCH_PATHS } from './bench-paths';
 import type { App } from '../app';
@@ -151,7 +151,8 @@ export function registerBuiltinCommands(app: App) {
     return { path: file, bytes: blob.size };
   });
 
-  registerCommand('bench', 'Run benchmark camera paths: {paths=[valley,flyover,walk], warmup=3, seconds}', async ({ paths, warmup, seconds }) => {
+  registerCommand('bench', 'Run benchmark camera paths: {paths=[valley,flyover,walk], warmup=3, seconds, range=[u0,u1] (sub-section of the path)}', async ({ paths, warmup, seconds, range }) => {
+    const [u0, u1]: [number, number] = range ?? [0, 1];
     const names: string[] = paths ?? Object.keys(BENCH_PATHS);
     const results: Record<string, unknown> = {};
     const prevEnabled = app.freeCam.enabled;
@@ -170,7 +171,7 @@ export function registerBuiltinCommands(app: App) {
             if (t0 < 0) t0 = now;
             const el = now - t0;
             if (el >= (warmup ?? 3) && !engine.stats.recorder) engine.stats.recorder = rec;
-            const u = Math.min(1, Math.max(0, (el - (warmup ?? 3)) / def.seconds));
+            const u = u0 + (u1 - u0) * Math.min(1, Math.max(0, (el - (warmup ?? 3)) / def.seconds));
             pos.getPointAt(u, engine.camera.position);
             look.getPointAt(u, _v);
             app.freeCam.setPose(engine.camera.position);
@@ -185,6 +186,7 @@ export function registerBuiltinCommands(app: App) {
         results[name] = {
           label: def.label,
           frameMs: summarize(rec.interval),
+          timeline: timeline(rec.interval),
           cpuMs: summarize(rec.cpu),
           gpuMs: summarize(rec.gpu),
           drawCalls: engine.stats.drawCalls,

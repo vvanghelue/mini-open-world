@@ -21,6 +21,7 @@ if (variants.length < 1) {
   process.exit(1);
 }
 const seconds = Number(opts.seconds || 4), rounds = Number(opts.rounds || 3), pathName = opts.path || 'valley';
+const range = opts.range ? String(opts.range).split(',').map(Number) : undefined;
 const width = Number(opts.width || 2560), height = Number(opts.height || 1440);
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mow-ab-'));
 const browser = await puppeteer.launch({
@@ -35,16 +36,16 @@ try {
   const parse = (v) => Object.fromEntries(v.split(',').filter(Boolean).map((s) => s.split('=')));
   const defaults = await page.evaluate(() => window.agent.run('get', {}));
   // warm-up run (shader compilation, JIT, GPU clocks)
-  await page.evaluate((p) => window.agent.run('bench', { paths: [p], seconds: 3, warmup: 1 }), pathName);
+  await page.evaluate((p, range) => window.agent.run('bench', { paths: [p], seconds: 3, warmup: 1, range }), pathName, range);
   const results = variants.map(() => []);
   for (let r = 0; r < rounds; r++) {
     for (let i = 0; i < variants.length; i++) {
-      const res = await page.evaluate(async (defaults, kv, p, s) => {
+      const res = await page.evaluate(async (defaults, kv, p, s, range) => {
         await window.agent.run('set', defaults); // reset every setting, then apply this variant
         await window.agent.run('set', kv);
-        const out = await window.agent.run('bench', { paths: [p], seconds: s, warmup: 1 });
+        const out = await window.agent.run('bench', { paths: [p], seconds: s, warmup: 1, range });
         return out[p].frameMs;
-      }, defaults, parse(variants[i]), pathName, seconds);
+      }, defaults, parse(variants[i]), pathName, seconds, range);
       results[i].push(res.mean);
     }
   }

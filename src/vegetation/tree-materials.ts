@@ -30,6 +30,15 @@ export interface InstanceXform {
   normal: (local: any) => any; // world normal from local normal
   seed: any; // per-instance random 0..1
   fade: any; // cross-fade value v (see header)
+  /** Per-instance lighting from the scatter compute: sun visibility at the base / top of the tree, AP, sky. */
+  lighting?: { S: any; T: any; sunBase: any; sunTop: any; sky: any };
+}
+
+/** Assigns the vertex-lighting varyings from per-instance values (sun visibility interpolated over height). */
+function instanceLightingAt(vl: ReturnType<typeof makeVertexLighting>, xf: InstanceXform, world: any, heightRel: any) {
+  const l = xf.lighting;
+  if (!l) return vl.vertex(world);
+  vl.fromInstance({ S: l.S, T: l.T, sun: mix(l.sunBase, l.sunTop, clamp(heightRel, 0, 1)), sky: l.sky });
 }
 
 export const windUniforms = {
@@ -49,7 +58,44 @@ export const fadeVisible = Fn(([v]: [any]) => {
   return select(v.lessThan(1), select(n.greaterThanEqual(v), float(1), float(0)), select(n.lessThan(v.sub(1)), float(1), float(0)));
 });
 
-export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, tint: THREE.Color) {
+/** Wind-displaced foliage position: local (no instance transform) or world (with). Shared by the shaded and
+ *  depth pre-pass materials so both produce the same depth (the shaded pass tests with EQUAL). */
+function foliagePosition(xf: InstanceXform | null) {
+  const p = positionLocal;
+  const vdata = attribute('vdata', 'vec4');
+  const seed = xf ? xf.seed : float(0.5);
+  // wind: whole-tree sway grows with height^2, branch flutter grows with flex
+  const h = vdata.w;
+  const t = time;
+  const sway = sin(t.mul(0.9).add(seed.mul(6.28))).mul(0.06).add(sin(t.mul(2.1).add(seed.mul(17))).mul(0.025)).mul(h.mul(h)).mul(p.y.mul(0.02).add(0.5));
+  const flutter = sin(t.mul(4.3).add(vdata.z).add(p.x.mul(0.7))).mul(0.05).mul(vdata.y);
+  const d = windUniforms.dir;
+  const local = p.add(vec3(d.x.mul(sway.add(flutter)), flutter.mul(0.4), d.y.mul(sway.add(flutter))).mul(windUniforms.strength));
+  return xf ? xf.position(local) : local;
+}
+
+export interface FoliageOptions {
+  /** Drawn after a depth pre-pass (makeFoliageDepthMaterial): EQUAL depth test, no alpha test / discard, so the
+   *  GPU's hidden surface removal shades each pixel once instead of once per overlapping card. */
+  prepassed?: boolean;
+}
+
+/** Depth-only pre-pass for alpha-tested foliage (cheap: one texture fetch). */
+export function makeFoliageDepthMaterial(tx: TreeTextures, xf: InstanceXform) {
+  const m = new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide });
+  m.colorWrite = false;
+  m.fog = false;
+  m.userData.invariantPosition = true;
+  m.positionNode = Fn(() => foliagePosition(xf))();
+  const tex = texture(tx.twigAlbedo, uv());
+  m.colorNode = vec4(0, 0, 0, 1);
+  m.opacityNode = tex.a.mul(fadeVisible(xf.fade));
+  m.alphaTest = 0.45;
+  (m as any).maskShadowNode = tex.a.greaterThan(0.45);
+  return m;
+}
+
+export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, tint: THREE.Color, opts: FoliageOptions = {}) {
   // Lambert: foliage has no meaningful specular, diffuse-only lighting is markedly cheaper
   const m = new THREE.MeshLambertNodeMaterial({ side: THREE.DoubleSide });
   const vdata = attribute('vdata', 'vec4');
@@ -58,18 +104,10 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   const vl = xf ? makeVertexLighting(`fol${matId++}`) : null;
   if (vl) m.userData.vertexLighting = true;
 
-  // wind: whole-tree sway grows with height^2, branch flutter grows with flex
   m.positionNode = Fn(() => {
-    const p = positionLocal;
-    const h = vdata.w;
-    const t = time;
-    const sway = sin(t.mul(0.9).add(seed.mul(6.28))).mul(0.06).add(sin(t.mul(2.1).add(seed.mul(17))).mul(0.025)).mul(h.mul(h)).mul(p.y.mul(0.02).add(0.5));
-    const flutter = sin(t.mul(4.3).add(vdata.z).add(p.x.mul(0.7))).mul(0.05).mul(vdata.y);
-    const d = windUniforms.dir;
-    const local = p.add(vec3(d.x.mul(sway.add(flutter)), flutter.mul(0.4), d.y.mul(sway.add(flutter))).mul(windUniforms.strength));
-    if (!xf) return local;
-    const world = xf.position(local).toVar();
-    vl!.vertex(world);
+    if (!xf) return foliagePosition(null);
+    const world = foliagePosition(xf).toVar();
+    instanceLightingAt(vl!, xf, world, vdata.w);
     return world;
   })();
   if (xf) m.normalNode = transformNormalToView(normalize(xf.normal(normalLocal)));
@@ -81,8 +119,16 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
     const variation = mix(float(0.88), float(1.12), seed);
     return vec4(tex.rgb.mul(uTint).mul(variation).mul(mix(float(0.55), float(1), ao)), 1);
   })();
-  m.opacityNode = xf ? tex.a.mul(fadeVisible(xf.fade)) : tex.a;
-  m.alphaTest = 0.45;
+  if (opts.prepassed) {
+    m.userData.invariantPosition = true;
+    // three r186 maps EqualDepth to NotEqual under a reversed depth buffer (equality does not flip): asking for
+    // NotEqualDepth yields the EQUAL test we need (the engine always uses reversed depth)
+    m.depthFunc = THREE.NotEqualDepth;
+    m.depthWrite = false;
+  } else {
+    m.opacityNode = xf ? tex.a.mul(fadeVisible(xf.fade)) : tex.a;
+    m.alphaTest = 0.45;
+  }
   // the shadow pass ignores opacityNode: cut the cards out explicitly
   (m as any).maskShadowNode = tex.a.greaterThan(0.45);
   m.aoNode = Fn(() => mix(float(0.5), float(1), ao).mul(vl ? vl.skyVis : skyVisAt(positionWorld.xz)))();
@@ -98,14 +144,14 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   return m;
 }
 
-export function makeBarkMaterial(tx: TreeTextures, xf: InstanceXform | null) {
+export function makeBarkMaterial(tx: TreeTextures, xf: InstanceXform | null, treeHeight = 25) {
   const m = new THREE.MeshStandardNodeMaterial();
   const vl = xf ? makeVertexLighting(`bark${matId++}`) : null;
   if (xf) {
     m.userData.vertexLighting = true;
     m.positionNode = Fn(() => {
       const world = xf.position(positionLocal).toVar();
-      vl!.vertex(world);
+      instanceLightingAt(vl!, xf, world, positionLocal.y.div(treeHeight));
       return world;
     })();
     m.normalNode = transformNormalToView(normalize(xf.normal(normalLocal)));

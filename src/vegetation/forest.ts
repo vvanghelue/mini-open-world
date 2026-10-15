@@ -18,10 +18,10 @@ import type { Atmosphere } from '../sky/atmosphere';
 import type { TerrainShadows } from '../lighting/terrain-shadows';
 import { loadBitmapTexture } from '../terrain/terrain-textures';
 import { generateTree, TREE_PRESETS, GeneratedTree, TwigRect } from './tree-generator';
-import { makeFoliageMaterial, makeBarkMaterial, InstanceXform, TreeTextures, sunUniforms, windUniforms, fadeVisible } from './tree-materials';
+import { makeFoliageMaterial, makeFoliageDepthMaterial, makeBarkMaterial, InstanceXform, TreeTextures, sunUniforms, windUniforms, fadeVisible } from './tree-materials';
 import { bakeImpostors, impostorShaderParts, ImpostorAtlas, IMP_N, IMP_COLS } from './impostors';
 import { registerCommand } from '../agent/bridge';
-import { skyVisAt } from '../terrain/terrain-material';
+import { lightingHooks } from '../lighting/vertex-lighting';
 
 export const forestSettings = settings.group('forest', 'Forêt', {
   enabled: { value: true, label: 'Arbres' },
@@ -31,6 +31,7 @@ export const forestSettings = settings.group('forest', 'Forêt', {
   maxDistance: { value: 2000, min: 500, max: 4000, step: 50, label: 'Distance max (m)' },
   treeline: { value: 2050, min: 1500, max: 2600, step: 10, label: 'Limite des arbres (m)' },
   wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
+  foliagePrepass: { value: true, label: 'Pré-passe profondeur feuillage' },
   debugDraw: { value: 'all', options: { Tout: 'all', 'Maillages seuls': 'meshes', 'Imposteurs seuls': 'impostors', 'Aucun (compute seul)': 'none' }, label: 'Debug dessin' },
   debugFlatImpostors: { value: false, label: 'Debug imposteurs unis', hidden: true },
   debugMeshShading: { value: 'full', options: { full: 'full', noShadow: 'noShadow', noFog: 'noFog', basic: 'basic' }, label: 'Debug shading maillages', hidden: true },
@@ -59,6 +60,19 @@ const LIST_BASE: number[] = [];
 }
 const CAP_TOTAL = LIST_BASE[NLIST - 1] + CAP_IMP[NB - 1];
 
+// instance record: 4 x vec4 = (x, y, z, scale), (rotation, fade, seed, variant), (AP S.rgb, sky visibility),
+// (AP T.rgb, packed sun visibility base/top)
+const INST_STRIDE = 4;
+/** Two visibilities in [0,1] in one float: base in the integer part (1/1000 steps), top in the fraction. */
+const packSun = (base: any, top: any) => floor(clamp(base, 0, 1).mul(1000)).add(clamp(top, 0, 1).mul(0.999));
+const instanceLighting = (d2: any, d3: any) => ({
+  S: d2.xyz,
+  sky: d2.w,
+  T: d3.xyz,
+  sunBase: floor(d3.w).div(1000),
+  sunTop: d3.w.sub(floor(d3.w)).div(0.999),
+});
+
 interface DrawEntry {
   list: number;
   mesh: THREE.Mesh;
@@ -79,6 +93,7 @@ export class Forest implements System {
   private gridN = 0;
 
   private uCam = uniform(new THREE.Vector3());
+  private uViewProj = uniform(new THREE.Matrix4());
   private uGridOrigin = uniform(new THREE.Vector2());
   private uGridN = uniform(0);
   private uPlanes = uniformArray([0, 1, 2, 3, 4, 5].map(() => new THREE.Vector4()));
@@ -116,18 +131,19 @@ export class Forest implements System {
     this.atlas = await bakeImpostors(engine.renderer, this.trees0, tx, tints);
 
     // ---------------------------------------------------------------- buffers
-    this.instBuf = new THREE.StorageBufferAttribute(new Float32Array(CAP_TOTAL * 8), 4);
+    this.instBuf = new THREE.StorageBufferAttribute(new Float32Array(CAP_TOTAL * 4 * INST_STRIDE), 4);
     this.counters = new THREE.StorageBufferAttribute(new Uint32Array(16), 1);
-    const nEntries = NV * 6 + NB * 2;
+    const nEntries = NV * 8 + NB * 2;
     this.drawArgs = new THREE.IndirectStorageBufferAttribute(new Uint32Array(nEntries * 5), 5);
 
     // ---------------------------------------------------------------- instance transform (shared by all LOD meshes)
-    const inst = storage(this.instBuf, 'vec4', CAP_TOTAL * 2).toReadOnly();
+    const inst = storage(this.instBuf, 'vec4', CAP_TOTAL * INST_STRIDE).toReadOnly();
     const makeXform = (): { xf: InstanceXform; baseUniform: any } => {
       const baseU = uniform(0).onObjectUpdate(({ object }: any) => object.userData.instBase);
-      const i2 = int(baseU).add(int(instanceIndex)).mul(2);
+      const i2 = int(baseU).add(int(instanceIndex)).mul(INST_STRIDE);
       const d0 = inst.element(i2);
       const d1 = inst.element(i2.add(1));
+      const lit = instanceLighting(inst.element(i2.add(2)), inst.element(i2.add(3)));
       const c = cos(d1.x), s = sin(d1.x);
       const rot = (v: any) => vec3(c.mul(v.x).add(s.mul(v.z)), v.y, s.negate().mul(v.x).add(c.mul(v.z)));
       return {
@@ -137,6 +153,7 @@ export class Forest implements System {
           normal: (local: any) => rot(local),
           seed: d1.z,
           fade: d1.y,
+          lighting: lit,
         },
       };
     };
@@ -165,9 +182,12 @@ export class Forest implements System {
         const list = lod === 0 ? v : NV + v;
         const { xf } = makeXform();
         const fm = makeFoliageMaterial(tx, xf, tints[v]);
+        // optional depth pre-pass (forest.foliagePrepass): masked depth first, then shading with EQUAL depth
+        addDraw(tree.foliage, makeFoliageDepthMaterial(tx, xf), list, 'depth');
         addDraw(tree.foliage, fm, list);
+        this.draws[this.draws.length - 1].mesh.userData.alt = { normal: fm, prepassed: makeFoliageMaterial(tx, xf, tints[v], { prepassed: true }) };
         const { xf: xfb } = makeXform();
-        const bm = makeBarkMaterial(tx, xfb);
+        const bm = makeBarkMaterial(tx, xfb, tree.height);
         addDraw(tree.bark, bm, list);
         if (lod === 0) {
           // LOD0 trees cast their shadow with the light LOD1 geometry: shadow-only proxies on layer 1
@@ -176,7 +196,7 @@ export class Forest implements System {
           addDraw(trees1[v].foliage, fm, list, 'shadow');
           addDraw(trees1[v].bark, bm, list, 'shadow');
           for (const d of this.draws.slice(nShadowOnly)) d.mesh.layers.set(1);
-          for (const d of this.draws.slice(nShadowOnly - 2, nShadowOnly)) d.mesh.castShadow = false;
+          for (const d of this.draws.slice(nShadowOnly - 3, nShadowOnly)) d.mesh.castShadow = false;
         }
       }
     }
@@ -190,7 +210,13 @@ export class Forest implements System {
     // draw order: near meshes, impostor depth bands (near -> far), impostor colour bands
     for (const d of this.draws) {
       const band = d.list - 2 * NV;
-      d.mesh.renderOrder = d.list < NV ? 1 : d.list < 2 * NV ? 2 : d.mesh.userData.pass === 'depth' ? 3 + band : 10 + band;
+      const depth = d.mesh.userData.pass === 'depth';
+      d.mesh.renderOrder = d.list < 2 * NV ? (depth ? -1 : d.list < NV ? 1 : 2) : depth ? 3 + band : 10 + band;
+      d.mesh.userData.casts = d.mesh.castShadow;
+    }
+    // a mesh depth pass casts the shadow in place of its colour pass when the pre-pass is on
+    for (const d of this.draws) {
+      if (d.list < 2 * NV && d.mesh.userData.pass === 'depth') d.mesh.userData.castsPre = this.draws.some((o) => o.mesh.userData.alt && o.list === d.list && o.mesh.userData.casts);
     }
     this.group.name = 'forest';
     engine.scene.add(this.group);
@@ -240,9 +266,10 @@ export class Forest implements System {
     const m = new THREE.MeshBasicNodeMaterial();
     m.fog = false;
     const baseU = uniform(0).onObjectUpdate(({ object }: any) => object.userData.instBase);
-    const i2 = int(baseU).add(int(instanceIndex)).mul(2);
+    const i2 = int(baseU).add(int(instanceIndex)).mul(INST_STRIDE);
     const d0 = inst.element(i2);
     const d1 = inst.element(i2.add(1));
+    const lit = instanceLighting(inst.element(i2.add(2)), inst.element(i2.add(3)));
     const vFrame = [0, 1, 2, 3].map((k) => varying(vec4(0), `impF${k}`)); // xy frame-local uv, zw atlas cell offset
     const vW = varying(vec4(1, 0, 0, 0), 'impW');
     const vRotCS = varying(vec2(1, 0), 'impRot');
@@ -250,7 +277,6 @@ export class Forest implements System {
     const vApS = varying(vec3(0), 'impApS');
     const vApT = varying(vec3(1), 'impApT');
     const vSkyVis = varying(float(1), 'impSkyVis');
-    const shadowAt = this.terrainShadows.visibilityAt;
     const atmo = this.atmosphere;
     const cellSize = vec2(1 / (N * IMP_COLS), 1 / (N * rows));
 
@@ -292,13 +318,11 @@ export class Forest implements System {
       }
       vW.assign(vec4(float(1).sub(f.x).mul(float(1).sub(f.y)), f.x.mul(float(1).sub(f.y)), float(1).sub(f.x).mul(f.y), f.x.mul(f.y)));
       vRotCS.assign(vec2(c, s));
-      vMisc.assign(vec4(d1.y, d1.z, length(cameraPosition.sub(C)), shadowAt(world)));
-      const clip = cameraProjectionMatrix.mul(cameraViewMatrix).mul(vec4(C, 1));
-      const ndc = clip.xy.div(clip.w);
-      const ap = atmo.aerialPerspective(C, vec2(ndc.x.mul(0.5).add(0.5), float(0.5).sub(ndc.y.mul(0.5))));
-      vApS.assign(ap.S);
-      vApT.assign(ap.T);
-      vSkyVis.assign(skyVisAt(C.xz));
+      // lighting terms come from the scatter compute (per tree); sun visibility interpolated over the quad height
+      vMisc.assign(vec4(d1.y, d1.z, length(cameraPosition.sub(C)), mix(lit.sunBase, lit.sunTop, positionLocal.y.mul(0.5).add(0.5))));
+      vApS.assign(lit.S);
+      vApT.assign(lit.T);
+      vSkyVis.assign(lit.sky);
       return world;
     })();
 
@@ -367,7 +391,7 @@ export class Forest implements System {
   private buildComputes() {
     const H = this.terrain.heightNode;
     const forest = this.terrain.forestNode;
-    const inst = storage(this.instBuf, 'vec4', CAP_TOTAL * 2);
+    const inst = storage(this.instBuf, 'vec4', CAP_TOTAL * INST_STRIDE);
     const counters = storage(this.counters, 'uint', 16).toAtomic();
     const args = storage(this.drawArgs, 'uint', this.drawArgs.count * 5);
     const heights = uniformArray(this.trees0.map((t) => t.height));
@@ -382,12 +406,15 @@ export class Forest implements System {
     });
     const rnd = (h: any) => float(h.bitAnd(uint(0xffffff))).div(16777216);
 
+    let light: { d2: any; d3: any } = null!;
     const emit = (list: any, x: any, y: any, z: any, scale: any, rotv: any, fade: any, seed: any, variant: any) => {
       const slot = atomicAdd(counters.element(list), uint(1)).toVar();
       If(slot.lessThan(uint(listCap.element(list))), () => {
-        const i = int(listBase.element(list)).add(int(slot)).mul(2);
+        const i = int(listBase.element(list)).add(int(slot)).mul(INST_STRIDE);
         inst.element(i).assign(vec4(x, y, z, scale));
         inst.element(i.add(1)).assign(vec4(rotv, fade, seed, variant));
+        inst.element(i.add(2)).assign(light.d2);
+        inst.element(i.add(3)).assign(light.d3);
       });
     };
 
@@ -450,6 +477,22 @@ export class Forest implements System {
       If(thinFade.greaterThan(0.999), () => Return());
       // enlarge survivors so the canopy coverage stays the same (area ~ 1/keepP)
       scale.mulAssign(float(1).div(sqrt(keepP)).mul(0.92).max(1));
+      // per-tree lighting (replaces per-vertex evaluation in the foliage / bark / impostor shaders):
+      // sun visibility (heightfield incl. forest canopy, clouds) near the base and at the top, aerial perspective
+      // and sky visibility at the crown centre
+      {
+        const hk = lightingHooks;
+        const Hs = heights.element(vi).mul(scale);
+        const sunBase = hk.sunVisibilityAt ? hk.sunVisibilityAt(vec3(x, y.add(Hs.mul(0.15)), z), this.uCam) : float(1);
+        const sunTop = hk.sunVisibilityAt ? hk.sunVisibilityAt(vec3(x, y.add(Hs), z), this.uCam) : float(1);
+        const C = vec3(x, y.add(Hs.mul(0.5)), z);
+        const clip = this.uViewProj.mul(vec4(C, 1));
+        const ndc = clip.xy.div(max(abs(clip.w), 1e-3));
+        const suv = clamp(vec2(ndc.x.mul(0.5).add(0.5), float(0.5).sub(ndc.y.mul(0.5))), vec2(0), vec2(1));
+        const ap = this.atmosphere.aerialPerspective(C, suv, this.uCam);
+        const sky = hk.skyVisAt ? hk.skyVisAt(vec2(x, z)) : float(1);
+        light = { d2: vec4(ap.S, sky).toVar(), d3: vec4(ap.T, packSun(sunBase, sunTop)).toVar() };
+      }
       const L0 = vi, L1 = vi.add(NV);
       // band index as float math (select() on int nodes mis-typed here), then converted once
       const band = step(IMP_BANDS[0], dist).add(step(IMP_BANDS[1], dist)).add(step(IMP_BANDS[2], dist));
@@ -505,16 +548,27 @@ export class Forest implements System {
     if (this.lastMeshShading !== s.debugMeshShading) {
       this.lastMeshShading = s.debugMeshShading;
       for (const d of this.draws) {
-        if (d.list >= 2 * NV || d.mesh.userData.pass === 'shadow') continue;
+        if (d.list >= 2 * NV || d.mesh.userData.pass !== 'color') continue;
         d.mesh.receiveShadow = s.debugMeshShading !== 'noShadow' && s.debugMeshShading !== 'basic';
         (d.mesh.material as any).fog = s.debugMeshShading !== 'noFog' && s.debugMeshShading !== 'basic';
         (d.mesh.material as THREE.Material).needsUpdate = true;
       }
     }
+    const pre = s.foliagePrepass;
     for (const d of this.draws) {
       const isImp = d.list >= 2 * NV;
-      if (isImp && d.mesh.userData.pass === 'color') d.mesh.material = s.debugFlatImpostors ? this.impostorFlatMaterial : this.impostorMaterial;
-      d.mesh.visible = s.debugDraw === 'all' || (s.debugDraw === 'impostors' && isImp) || (s.debugDraw === 'meshes' && !isImp);
+      const u = d.mesh.userData;
+      if (isImp && u.pass === 'color') d.mesh.material = s.debugFlatImpostors ? this.impostorFlatMaterial : this.impostorMaterial;
+      let on = true;
+      if (u.alt) {
+        // foliage colour pass: EQUAL-depth variant after the pre-pass; the depth pass then casts the shadow
+        d.mesh.material = pre ? u.alt.prepassed : u.alt.normal;
+        d.mesh.castShadow = u.casts && !pre;
+      } else if (!isImp && u.pass === 'depth') {
+        on = pre;
+        d.mesh.castShadow = pre && u.castsPre;
+      }
+      d.mesh.visible = on && (s.debugDraw === 'all' || (s.debugDraw === 'impostors' && isImp) || (s.debugDraw === 'meshes' && !isImp));
     }
     const cam = this.engine.camera;
     cam.updateMatrixWorld();
@@ -541,6 +595,7 @@ export class Forest implements System {
     this.uGridOrigin.value.set(gx0, gz0);
     this.uGridN.value = this.gridN;
     this.projView.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+    this.uViewProj.value.copy(this.projView);
     this.frustum.setFromProjectionMatrix(this.projView, THREE.WebGPUCoordinateSystem, (cam as any).reversedDepth === true);
     for (let i = 0; i < 6; i++) {
       const p = this.frustum.planes[i];

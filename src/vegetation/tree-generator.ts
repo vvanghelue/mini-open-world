@@ -8,7 +8,11 @@ export interface TwigRect {
   v0: number;
   u1: number;
   v1: number;
+  /** Tight convex card outline in sprite space (s across u0..u1, f from stem v1 to tip v0); falls back to the rect. */
+  poly?: [number, number][];
 }
+
+const RECT: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
 
 export interface TreeParams {
   name: string;
@@ -100,10 +104,9 @@ export function generateTree(p: TreeParams, twigs: TwigRect[], lod: 0 | 1): Gene
     // blend card normal with a spherical (outward) normal for volumetric shading
     const sph = outward.clone().multiplyScalar(0.8).add(n.clone().multiplyScalar(0.2)).normalize();
     const base = fPos.length / 3;
-    const corners = [
-      [-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 1],
-    ];
-    for (const [sx, fy] of corners) {
+    const outline = twig.poly ?? RECT;
+    for (const [s, fy] of outline) {
+      const sx = s - 0.5;
       _v.copy(center).addScaledVector(side, sx * wid).addScaledVector(fwd, (fy - 0.15) * len);
       fPos.push(_v.x, _v.y, _v.z);
       fNrm.push(sph.x, sph.y, sph.z);
@@ -112,7 +115,7 @@ export function generateTree(p: TreeParams, twigs: TwigRect[], lod: 0 | 1): Gene
       const h = Math.max(0, _v.y / H);
       fData.push(ao, flex * (0.6 + fy * 0.4), phase, h);
     }
-    fIdx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    for (let i = 1; i + 1 < outline.length; i++) fIdx.push(base, base + i, base + i + 1);
   };
 
   // whorls of main branches plus smaller inter-whorl branches

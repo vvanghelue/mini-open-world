@@ -6,7 +6,7 @@
 import { property, varying, float, vec2, vec3, vec4, cameraProjectionMatrix, cameraViewMatrix } from 'three/tsl';
 
 export const lightingHooks: {
-  sunVisibilityAt: ((p: any) => any) | null; // heightfield x clouds
+  sunVisibilityAt: ((p: any, cam?: any) => any) | null; // heightfield x clouds (cam: explicit camera position, for computes)
   apAt: ((p: any, suv: any) => { S: any; T: any }) | null;
   skyVisAt: ((xz: any) => any) | null;
 } = { sunVisibilityAt: null, apAt: null, skyVisAt: null };
@@ -19,7 +19,16 @@ export function usesVertexLighting(builder: any) {
   return builder?.material?.userData?.vertexLighting === true;
 }
 
-/** Creates the varyings for one material. Call `vertex(world)` inside positionNode, `fragment()` inside colorNode. */
+/** Lighting terms evaluated once per instance (e.g. in a scatter compute) and handed to the vertex shader. */
+export interface InstanceLighting {
+  S: any; // aerial perspective in-scatter (vec3)
+  T: any; // aerial perspective transmittance (vec3)
+  sun: any; // heightfield x cloud sun visibility (float)
+  sky: any; // sky visibility (float)
+}
+
+/** Creates the varyings for one material. Call `vertex(world)` (or `fromInstance(...)`) inside positionNode,
+ *  `fragment()` inside colorNode. */
 export function makeVertexLighting(tag: string) {
   const vSun = varying(float(1), `vlSun_${tag}`);
   const vS = varying(vec3(0), `vlS_${tag}`);
@@ -37,6 +46,13 @@ export function makeVertexLighting(tag: string) {
         vT.assign(ap.T);
       }
       vSky.assign(h.skyVisAt ? h.skyVisAt(world.xz) : float(1));
+    },
+    /** Per-instance values instead of per-vertex evaluation (much cheaper for dense foliage). */
+    fromInstance(l: InstanceLighting) {
+      vSun.assign(l.sun);
+      vS.assign(l.S);
+      vT.assign(l.T);
+      vSky.assign(l.sky);
     },
     fragment() {
       vlSunVis().assign(vSun);

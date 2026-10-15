@@ -496,8 +496,8 @@ export class Atmosphere implements System {
 
   /** Fog node: applies aerial perspective (in-scattering + extinction) to every lit material. */
   /** TSL: aerial perspective for a world position seen at a screen uv -> { S (in-scatter), T (transmittance) }. */
-  aerialPerspective(pw: any, suv: any) {
-    const dKm = length(pw.sub(cameraPosition)).div(1000);
+  aerialPerspective(pw: any, suv: any, camPos: any = cameraPosition) {
+    const dKm = length(pw.sub(camPos)).div(1000);
     const w = sqrt(clamp(dKm.div(AP_MAX_KM), 0, 1));
     // keep each half's samples inside its own texels (no bleeding across the seam)
     const us = clamp(suv.x.mul(AP_RES), 0.5, AP_RES - 0.5).div(AP_RES * 2);

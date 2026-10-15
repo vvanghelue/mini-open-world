@@ -160,8 +160,10 @@ export class TerrainShadows implements System {
 
   // ---------------------------------------------------------------- sampling
   private buildSampler() {
-    this.visibilityAt = Fn(([pw]: [any]) => this.visibilityImpl(pw));
-    return Fn(() => this.visibilityImpl(positionWorld))();
+    this.visibilityAt = Fn(([pw]: [any]) => this.visibilityImpl(pw, cameraPosition));
+    // compute shaders have no camera: the caller passes the camera position uniform
+    this.visibilityFromAt = Fn(([pw, cam]: [any, any]) => this.visibilityImpl(pw, cam));
+    return Fn(() => this.visibilityImpl(positionWorld, cameraPosition))();
   }
 
   /** Manual bilinear fetch of a level's front texture at uv (0..1). */
@@ -180,12 +182,14 @@ export class TerrainShadows implements System {
 
   /** TSL: sun visibility at an arbitrary world position (usable in vertex shaders). */
   visibilityAt!: (p: any) => any;
+  /** Same with an explicit camera position (compute shaders). */
+  visibilityFromAt!: (p: any, cam: any) => any;
 
-  private visibilityImpl(pw: any) {
+  private visibilityImpl(pw: any, cam: any) {
     // pick the finest level containing the point; blend with the next level only inside the border band
     return Fn(() => {
       const p = pw;
-      const dist = length(cameraPosition.sub(p));
+      const dist = length(cam.sub(p));
       const bias = max(float(0.6), dist.mul(0.003));
       const vis = float(1).toVar();
       const evalLevel = (L: Level) => {

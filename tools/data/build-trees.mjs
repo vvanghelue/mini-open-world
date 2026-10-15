@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+import { convexHull, reduceHull, polygonArea } from './hull.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const SRC = path.join(ROOT, 'data-raw/trees/fir');
@@ -59,11 +60,30 @@ async function main() {
     comps.push(c);
   }
   // keep compact twig-like components away from the left/bottom trunk strips
-  const twigs = comps
+  const kept = comps
+    .map((c, id) => ({ ...c, id }))
     .filter((c) => c.n > 120 && c.x0 > S * 0.12 && c.y1 < S * 0.86 && (c.x1 - c.x0) < S * 0.5)
-    .map((c) => ({ u0: (c.x0 - 1) / S, v0: (c.y0 - 1) / S, u1: (c.x1 + 2) / S, v1: (c.y1 + 2) / S, area: c.n }))
-    .sort((a, b) => b.area - a.area);
-  console.log(`twig sprites: ${twigs.length}`, twigs.map((t) => `${((t.u1 - t.u0) * RES) | 0}x${((t.v1 - t.v0) * RES) | 0}`).join(' '));
+    .sort((a, b) => b.n - a.n);
+  // tight card polygon per sprite (4 vertices: same vertex count as a quad, convex, enclosing the component's opaque cells + small margin):
+  // ~85% of a twig's rectangle is transparent, and discarded fragments still cost fill rate
+  const POLY_K = 4, MARGIN = 0.3;
+  const twigs = kept.map((c) => {
+    const u0 = (c.x0 - 1) / S, v0 = (c.y0 - 1) / S, u1 = (c.x1 + 2) / S, v1 = (c.y1 + 2) / S;
+    const pts = [];
+    for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) {
+      if (!mask[y * S + x] || label[y * S + x] !== c.id) continue;
+      for (const [dx, dy] of [[-MARGIN, -MARGIN], [1 + MARGIN, -MARGIN], [-MARGIN, 1 + MARGIN], [1 + MARGIN, 1 + MARGIN]]) pts.push([x + dx, y + dy]);
+    }
+    const hull = reduceHull(convexHull(pts), POLY_K);
+    // sprite space used by the generator: s across (u0 -> u1), f along the twig (v1 = stem -> v0 = tip)
+    const poly = hull.map(([x, y]) => [
+      +Math.min(1, Math.max(0, (x / S - u0) / (u1 - u0))).toFixed(4),
+      +Math.min(1, Math.max(0, (v1 - y / S) / (v1 - v0))).toFixed(4),
+    ]);
+    const fill = polygonArea(hull) / ((u1 - u0) * (v1 - v0) * S * S);
+    return { u0, v0, u1, v1, area: c.n, poly, polyFill: +fill.toFixed(3) };
+  });
+  console.log(`twig sprites: ${twigs.length}`, twigs.map((t) => `${((t.u1 - t.u0) * RES) | 0}x${((t.v1 - t.v0) * RES) | 0} (poly ${(t.polyFill * 100).toFixed(0)}%)`).join(' '));
 
   // --- RGBA atlases; dilate colour into transparent texels (8 passes) to avoid dark mip fringes
   const rgba = Buffer.alloc(RES * RES * 4);

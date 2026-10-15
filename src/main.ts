@@ -1,3 +1,4 @@
+import './core/three-patches';
 import { Engine } from './core/engine';
 import { Input } from './core/input';
 import { settings } from './core/settings';
@@ -64,7 +65,7 @@ async function main() {
   setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
   terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
-  lightingHooks.sunVisibilityAt = (p) => terrainShadows.visibilityAt(p).mul(clouds.shadowAt(p));
+  lightingHooks.sunVisibilityAt = (p, cam) => (cam ? terrainShadows.visibilityFromAt(p, cam) : terrainShadows.visibilityAt(p)).mul(clouds.shadowAt(p));
   lightingHooks.apAt = (p, suv) => atmosphere.aerialPerspective(p, suv);
   lightingHooks.skyVisAt = (xz) => skyVisibility.visibility(xz);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
