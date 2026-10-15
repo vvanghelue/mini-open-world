@@ -27,7 +27,7 @@ export const forestSettings = settings.group('forest', 'Forêt', {
   enabled: { value: true, label: 'Arbres' },
   density: { value: 1.0, min: 0, max: 2, step: 0.05, label: 'Densité' },
   lod0Distance: { value: 30, min: 15, max: 200, step: 5, label: 'Distance LOD0 (m)' },
-  lod1Distance: { value: 100, min: 50, max: 600, step: 10, label: 'Distance LOD1 (m)' },
+  lod1Distance: { value: 75, min: 50, max: 600, step: 5, label: 'Distance LOD1 (m)' },
   maxDistance: { value: 2000, min: 500, max: 4000, step: 50, label: 'Distance max (m)' },
   treeline: { value: 2050, min: 1500, max: 2600, step: 10, label: 'Limite des arbres (m)' },
   wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
