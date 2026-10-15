@@ -20,8 +20,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   Vsync detection = quantised intervals (multiples of the display period). Validate governor changes in a VISIBLE
   capped Chrome (`run.mjs --headful --capped --width=1470 --height=830`): headless vsync has no display jitter and hid
   a bug that dropped quality to the minimum at a steady 60 fps.
-  Each resolution drop is checked (no gain -> reverted, lever blocked 20 s): in geometry-bound views (real window
-  size) lowering the resolution gains nothing and the target reallocation used to cost +0.5 ms.
+  Each resolution drop is checked with a trimmed mean (no gain -> further drops pause 8 s / 30 s, the drop is kept):
+  in geometry-bound views lowering the resolution gains nothing; p90-based checks misjudged real gains as noise.
+  Vsync detection also needs no frame clearly faster than the period (uncapped ~8.3 ms streams looked like 120 Hz).
 - Sustained uncapped benches keep the GPU at 100 %: after ~30-60 min the fanless Air throttles ~2x and even the
   governor floor cannot hold 10 ms. Real use is capped at 60 Hz (GPU ~30 % busy): validate the user experience with
   a sustained visible capped run (`run.mjs --headful --capped`, count frames > 25 ms).
@@ -43,7 +44,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   Tried without gain: `BundleGroup` render bundles (no CPU gain, broke near trees) — don't retry.
 - Thermal throttling measured with `tools/dev/thermal.mjs`: same workload 4.5 ms cold -> 8.9 ms after 2.5 min of
   uncapped load (x1.95), back to cold speed after ~1 min of rest. Uncapped stress numbers depend on the run order.
-- Uncapped Chrome has rare 10–14 ms interval spikes even on an empty page; most p95 excursions are real load at
+- Uncapped Chrome has 1–3 interval spikes > 10 ms per second even on an empty page (`tools/dev/spike-rate.mjs`):
+  at ~160 fps that is 1–2 % of frames over 10 ms in any bench, independent of rendering; most p95 excursions are real load at
   specific places: use `bench --timeline` (per-segment mean/p95) and `ab.mjs --range=u0,u1` on the hot segment.
 
 ## Run
