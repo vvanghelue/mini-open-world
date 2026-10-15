@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { FrameStats } from './stats';
 import { settings } from './settings';
+import { adaptive } from './adaptive';
 
 export interface FrameContext {
   dt: number; // seconds, clamped
@@ -114,7 +115,8 @@ export class Engine {
   resize() {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
-    this.renderer.setPixelRatio(renderSettings.outputPixelRatio);
+    // adaptive.outputScale: last-resort stage of the load governor (post/dynamic-resolution.ts)
+    this.renderer.setPixelRatio(renderSettings.outputPixelRatio * adaptive.outputScale);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();

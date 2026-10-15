@@ -114,10 +114,16 @@ export class Post implements System {
     this.rebuild();
 
     // dynamic resolution drives the internal scale (renderSettings.resolutionScale is its maximum)
-    this.dyn = new DynamicResolution((s) => {
-      scenePass.setResolutionScale(s);
-      this.resizeClouds(s);
-    });
+    this.dyn = new DynamicResolution(
+      (s) => {
+        scenePass.setResolutionScale(s);
+        this.resizeClouds(s);
+      },
+      (f) => {
+        adaptive.outputScale = f;
+        engine.resize();
+      },
+    );
     settings.on('render.resolutionScale', () => this.dyn.reset());
     settings.on('render.dynamicResolution', () => this.dyn.reset());
     settings.on('render.minResolutionScale', () => this.dyn.reset());

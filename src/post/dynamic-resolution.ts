@@ -9,6 +9,8 @@
 // Second stage: once the resolution floor is reached and the budget is still exceeded, the detail level
 // (adaptive.quality) is lowered, shortening forest / grass / rock detail distances; it is restored first when there is
 // headroom (then the resolution). Detail moves smoothly towards its target (dithered LOD transitions stay invisible).
+// Last resort, at minimum resolution and detail: the output (canvas) resolution drops to 80 % (the output-size passes —
+// upscale, bloom, tone mapping — dominate at 2560x1440). Restored first. Only reachable on very large windows.
 import { renderSettings } from '../core/engine';
 
 export interface DynResState {
@@ -33,13 +35,15 @@ export class DynamicResolution {
   private lastDrop = -1e9;
   private clock = 0;
 
-  constructor(private apply: (scale: number) => void) {}
+  constructor(private apply: (scale: number) => void, private applyOutput: (factor: number) => void = () => {}) {}
+  outputScale = 1;
 
   /** Resets to the user's maximum scale (settings changed, dynamic resolution toggled). */
   reset() {
     this.samples.length = 0;
     this.cleanTime = 0;
     this.qTarget = 1;
+    if (this.outputScale !== 1) this.applyOutput((this.outputScale = 1));
     this.probe = null;
     this.resBlockedUntil = -1;
     this.set(renderSettings.resolutionScale);
@@ -61,6 +65,10 @@ export class DynamicResolution {
       this.qTarget = Math.max(0, this.qTarget - 0.25);
       this.sinceChange = 0;
       this.samples.length = 0;
+    } else if (this.state.quality < 0.02 && this.outputScale === 1) {
+      this.applyOutput((this.outputScale = 0.8));
+      this.sinceChange = 0;
+      this.samples.length = 0;
     }
     this.lastDrop = this.clock;
     this.cleanTime = 0;
@@ -68,7 +76,11 @@ export class DynamicResolution {
 
   /** Headroom: restore the detail level first, then the resolution. */
   private improve() {
-    if (this.qTarget < 1) {
+    if (this.outputScale !== 1) {
+      this.applyOutput((this.outputScale = 1));
+      this.sinceChange = 0;
+      this.samples.length = 0;
+    } else if (this.qTarget < 1) {
       this.qTarget = Math.min(1, this.qTarget + 0.25);
       this.sinceChange = 0;
       this.samples.length = 0;
@@ -93,6 +105,7 @@ export class DynamicResolution {
       if (this.state.scale !== renderSettings.resolutionScale) this.set(renderSettings.resolutionScale);
       this.qTarget = 1;
       this.state.quality = 1;
+      if (this.outputScale !== 1) this.applyOutput((this.outputScale = 1));
       return;
     }
     if (!(intervalMs > 0) || intervalMs > 250) return; // tab switches, debugger pauses
@@ -152,7 +165,7 @@ export class DynamicResolution {
         this.sinceChange = 0;
         // raise slowly; wait longer after a recent drop (avoid oscillating around the limit)
         const wait = this.clock - this.lastDrop < 20 ? 6 : 2;
-        if ((s < max || this.qTarget < 1) && this.cleanTime > wait) this.improve();
+        if ((s < max || this.qTarget < 1 || this.outputScale !== 1) && this.cleanTime > wait) this.improve();
       }
       return;
     }
@@ -165,7 +178,7 @@ export class DynamicResolution {
       const k = Math.sqrt(target / p90);
       // while the detail level is still gliding down, give it time before another step
       if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(s * (0.15 + 0.85 * k), p90);
-    } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1)) {
+    } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
       if (this.cleanTime > (this.clock - this.lastDrop < 10 ? 2.5 : 1)) this.improve();

@@ -8,6 +8,8 @@ export const adaptive = {
   /** Detail level in [0, 1] (1 = full): shortens forest/grass/rock detail distances when the resolution floor is
    *  reached and the frame budget is still exceeded. Changes slowly (transitions stay dithered and invisible). */
   quality: 1,
+  /** Output (canvas) resolution factor: 1, or 0.8 as the governor's last resort (stress resolutions only). */
+  outputScale: 1,
 };
 
 /** Interpolates a distance between its reduced (quality 0) and full value. */
