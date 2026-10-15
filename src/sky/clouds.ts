@@ -1,6 +1,6 @@
 // @ts-nocheck -- TSL typings incomplete for these patterns
 // Volumetric cumulus layer (simplified Nubis): 2D coverage (weather) x vertical profile x tiling 3D Worley/value
-// noise, ray-marched at reduced resolution with a per-frame jittered start (TAA integrates), lit by the sun
+// noise, ray-marched at reduced resolution with a per-frame jittered start (averaged by cloud-temporal.ts), lit by the sun
 // (Beer + powder, dual-lobe phase, short light march) and the sky. Aerial perspective is applied at the cloud
 // depth. The result is composited over the scene (scene * T + L) before the temporal upscaler.
 import * as THREE from 'three/webgpu';
@@ -53,6 +53,8 @@ export class Clouds implements System {
   readonly uSunDir = uniform(new THREE.Vector3(0, 1, 0));
   readonly uSunColor = uniform(new THREE.Color());
   readonly uEnabled = uniform(1);
+  /** Frame counter (mod 1024) for the march start offsets. */
+  private uFrame = uniform(0);
   private windOffset = new THREE.Vector2();
 
   constructor(private atmosphere: Atmosphere) {}
@@ -215,7 +217,9 @@ export class Clouds implements System {
           // partial last step that jumps between pixels: banding)
           const steps = clamp(len.div(500).ceil(), this.uSteps, this.uMaxSteps);
           const dt = len.div(steps).max(30);
-          const jitter = interleavedGradientNoise(screenCoordinate.xy.add(fract(time.mul(7.13)).mul(64)));
+          // per-pixel offset advanced by the golden ratio every frame: each pixel cycles through evenly spread
+          // offsets, which the temporal filter (cloud-temporal.ts) averages
+          const jitter = fract(interleavedGradientNoise(screenCoordinate.xy).add(this.uFrame.mul(0.6180339887)));
           const t = t0.add(dt.mul(jitter)).toVar();
           const T = float(1).toVar();
           const L = vec3(0).toVar();
@@ -280,6 +284,7 @@ export class Clouds implements System {
     this.uSteps.value = Math.round(qualityScaled(s.steps, 0.55));
     this.uMaxSteps.value = Math.round(qualityScaled(56, 0.55));
     this.uShadow.value = s.shadows;
+    this.uFrame.value = (this.uFrame.value + 1) % 1024;
     this.windOffset.x += ctx.dt * s.wind * 0.8;
     this.windOffset.y += ctx.dt * s.wind * 0.6;
     this.uWind.value.copy(this.windOffset);

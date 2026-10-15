@@ -1,5 +1,6 @@
 // Small runtime patches of three.js internals (r186). Imported first by main.ts.
 import * as THREE from 'three/webgpu';
+import { positionLocal, positionPrevious } from 'three/tsl';
 
 // `material.userData.invariantPosition = true` marks the vertex position output @invariant, so two different
 // shaders computing the same position expression produce bit-identical depth (required by depth pre-pass +
@@ -28,3 +29,17 @@ Object.defineProperty(matProto, 'alphaTest', {
     else alphaDesc.set!.call(this, value);
   },
 });
+
+// Motion vectors: VelocityNode projects `positionPrevious`, which is the raw geometry attribute unless something
+// (instancing, skinning) updates it. Every material with a custom positionNode (CDLOD terrain, GPU-scattered trees and
+// grass, rocks, buildings) then got garbage motion vectors (grid/card coordinates instead of the displaced position):
+// the TAA resolve rejected its history there and showed the raw jittered frame, so shadows, foliage and the ground
+// shimmered. Those objects are static in world space, so the previous position is the current one (camera motion
+// still comes from the previous camera matrices; wind sway is left to the history clamp).
+const nodeMatProto = (THREE as any).NodeMaterial.prototype;
+const setupPosition = nodeMatProto.setupPosition;
+nodeMatProto.setupPosition = function (this: any, builder: any) {
+  const p = setupPosition.call(this, builder);
+  if (this.positionNode !== null && builder.needsPreviousData()) positionPrevious.assign(positionLocal);
+  return p;
+};

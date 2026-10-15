@@ -4,6 +4,7 @@ import * as THREE from 'three/webgpu';
 import { pass, mrt, output, velocity, uniform, float, vec3, vec4, rtt, uv, Fn } from 'three/tsl';
 import type { Clouds } from '../sky/clouds';
 import { cloudSettings } from '../sky/clouds';
+import { cloudTemporal } from '../sky/cloud-temporal';
 import { taau } from 'three/addons/tsl/display/TAAUNode.js';
 import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
 import { taauLite } from './taau-lite';
@@ -42,6 +43,7 @@ export class Post implements System {
   private sharpenNode: any;
   private liteNode: any;
   private liteOut: any;
+  private cloudFilter: any;
   private dyn!: DynamicResolution;
   private resizeClouds: (s: number) => void = () => {};
   /** Cloud march resolution factor under load (two levels: a continuous change would reallocate every frame). */
@@ -72,13 +74,16 @@ export class Post implements System {
     if (this.clouds) {
       const cloudTex: any = rtt(this.clouds.marchNode(depth, engine.camera), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
       cloudTex.setResolutionScale(renderSettings.resolutionScale * cloudSettings.resolution);
+      // the march noise is averaged at cloud resolution (sky/cloud-temporal.ts) before compositing
+      this.cloudFilter = cloudTemporal(cloudTex, this.clouds, engine.camera);
+      const cloudOut = this.cloudFilter.getTextureNode();
       // water reflections at half internal resolution (lighting/water-reflection.ts), weighted at full resolution
       const wmask = scenePass.getTextureNode('wmask');
       const reflTex: any = rtt(Fn(() => (postHooks.waterReflection ? postHooks.waterReflection(depth, wmask) : vec4(0)))(), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
       reflTex.setResolutionScale(renderSettings.resolutionScale * 0.5);
       const comp: any = rtt(Fn(() => {
         const c = sceneColor.sample(uv());
-        const cl = cloudTex.sample(uv());
+        const cl = cloudOut.sample(uv());
         const w = wmask.sample(uv()).r;
         const surface = c.rgb.add(reflTex.sample(uv()).rgb.mul(w));
         return vec4(surface.mul(cl.a).add(cl.rgb), 1);

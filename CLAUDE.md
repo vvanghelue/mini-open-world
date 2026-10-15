@@ -100,6 +100,10 @@ POI names, code, comments, docs, tool output — no French anywhere in the app o
   (~10 min, opens one visible Chrome for the 60 Hz check), writes `docs/ACCEPTANCE.md`. Run it after big changes.
 - `node tools/profile.mjs [--path=valley]` CPU self time; `tools/alloc-profile.mjs` JS allocations;
   `tools/dev/*` low-level probes (minimal WebGPU page, spikes, GC trace).
+- `node tools/dev/flicker.mjs --setup='camera ...' '' 'a.b=1' 'x=1|<js>'` → temporal stability: static camera,
+  simulation at 1/60 s per frame, per-pixel second temporal difference (vibration, not slow drift) + heat map
+  `screenshots/<name>-<i>-heat.png`. Reference view (Wengen building + trees, `camera e=2637300 n=1161700 agl=3`,
+  `camera yaw=0.5 pitch=-0.25`): mean 0.25, >2 levels 1.3 % (was 4.2 / 47 % before the motion-vector fixes).
 
 ## Architecture (src/)
 - `core/engine.ts` Engine + System interface (init/update/afterRender), loop, stats. `core/settings.ts` schema-driven
@@ -141,6 +145,17 @@ POI names, code, comments, docs, tool output — no French anywhere in the app o
   positions are metres off far away (reversed depth): for water, intersect the view ray with the heightfield plane.
 - Compute shaders have no camera: pass camera position / matrices as uniforms (`visibilityFromAt(p, cam)`,
   `aerialPerspective(p, uv, cam)`).
+- **TAA needs valid motion vectors.** A custom `positionNode` gets `positionPrevious = positionLocal` (patch in
+  `core/three-patches.ts`; without it the velocity used the raw grid/card attribute and the TAA showed the raw jittered
+  frame on the terrain, trees, grass, rocks). The velocity projection is one permanently bound unjittered matrix
+  (`taau-lite.ts`): materials compiled outside the pipeline hooks (compileAsync, first frame) baked the jittered
+  camera projection and the whole history wobbled. Check with `tools/dev/flicker.mjs` after touching TAA/velocity.
+- Near shadows (`StableCSMShadowNode`): the light frame turns only every 0.12 deg of sun motion, around the camera;
+  three's CSM re-oriented it every frame around the world origin, so the running clock slid the texel grid > 1 texel
+  per frame and every caster shimmered.
+- Clouds are averaged at cloud resolution before compositing (`sky/cloud-temporal.ts`, reprojected unjittered
+  history, 3x3 clamp): the scene TAA cannot remove the march noise (one cloud texel = 2x2 internal pixels).
+  A quad material that must output alpha uses `fragmentNode` (`colorNode` alpha is forced to 1 when opaque).
 
 ## Data
 - Core 24.576 km square, 8192² heights (3 m, swissALTI3D 2 m source), far ring 81.92 km at 40 m (Copernicus GLO-30).

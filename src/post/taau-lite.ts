@@ -12,6 +12,17 @@ import {
 const _size = new THREE.Vector2();
 const _quad = new THREE.QuadMesh();
 
+// Motion vectors must not contain the jitter. VelocityNode bakes its `projectionMatrix` into each material when that
+// material is built (null = the jittered camera projection), and TAA nodes only set it during the render pipeline.
+// Everything built before (compileAsync, the first frame, which registers the pipeline hooks) or after a reset to null
+// got the jitter in its velocity: the history was re-sampled at the jitter offset every frame and the image wobbled
+// by up to half a pixel. One unjittered matrix stays bound permanently; the TAA nodes only update its value.
+export const unjitteredProjection = new THREE.Matrix4();
+(velocity as any).projectionMatrix = unjitteredProjection;
+(velocity as any).setProjectionMatrix = (m: THREE.Matrix4 | null) => {
+  if (m) unjitteredProjection.copy(m);
+};
+
 // Halton(2,3) sequence, 16 samples
 const HALTON: Array<[number, number]> = [];
 {
@@ -41,7 +52,6 @@ export class TAAULiteNode extends THREE.TempNode {
   private outputTex: any;
   private originalProjection = new THREE.Matrix4();
   private needsReset = true;
-  private hooked = false;
 
   depthNode: any;
   /** maps current (unjittered) NDC of a direction at infinity to previous-frame clip space */
@@ -63,6 +73,7 @@ export class TAAULiteNode extends THREE.TempNode {
     this.historyTex = texture(this.history[0].texture);
     this.outputTex = passTexture(this as any, this.history[1].texture);
     this.resolveMaterial.name = 'TAAULite.resolve';
+    unjitteredProjection.copy((camera as THREE.PerspectiveCamera).projectionMatrix);
   }
 
   getTextureNode() {
@@ -111,7 +122,6 @@ export class TAAULiteNode extends THREE.TempNode {
 
   private clearViewOffset() {
     (this.camera as THREE.PerspectiveCamera).clearViewOffset();
-    (velocity as any).setProjectionMatrix(null);
     this.jitterIndex = (this.jitterIndex + 1) % HALTON.length;
   }
 
@@ -147,8 +157,10 @@ export class TAAULiteNode extends THREE.TempNode {
   private currentWeightReset = 1;
 
   setup(builder: any) {
-    if (!this.hooked && builder.renderPipeline) {
-      this.hooked = true;
+    // the hooks belong to the pipeline build: register them again whenever the pipeline is rebuilt (output node,
+    // sharpen or tone mapping change), or the jitter silently stops
+    if (builder.renderPipeline && !builder.context.renderPipelineState?.viewOffsetOwner) {
+      builder.context.renderPipelineState.viewOffsetOwner = this;
       OnBeforeRenderPipeline(() => {
         const rt = this.inputRT();
         this.setViewOffset(rt.texture.width, rt.texture.height);
