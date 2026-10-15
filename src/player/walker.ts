@@ -1,8 +1,9 @@
-// First-person walker: gravity, slope limit, jump, sprint, collisions with tree trunks.
+// First-person walker: gravity, slope limit, jump, sprint, collisions with tree trunks and buildings.
 import * as THREE from 'three/webgpu';
 import type { Input } from '../core/input';
 import { settings } from '../core/settings';
 import type { TreeQuery, Trunk } from './tree-query';
+import { worldColliders } from '../world/colliders';
 
 export const walkSettings = settings.group('walk', 'Marche', {
   walkSpeed: { value: 1.6, min: 0.5, max: 4, step: 0.1, label: 'Vitesse marche (m/s)' },
@@ -101,6 +102,9 @@ export class Walker {
         this.feet.z = t.z + (dz / d) * minD;
       }
     }
+
+    // static obstacles (buildings)
+    for (const c of worldColliders) c(this.feet, 0.35);
 
     const g = this.heightAt(this.feet.x, this.feet.z);
     if (this.feet.y <= g) {

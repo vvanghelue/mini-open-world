@@ -13,6 +13,7 @@ import type { Terrain } from '../terrain/terrain';
 import type { TimeOfDay } from '../sky/time-of-day';
 import { settings } from '../core/settings';
 import { skyVisAt, terrainHooks } from '../terrain/terrain-material';
+import { worldColliders } from './colliders';
 
 export const buildingSettings = settings.group('buildings', 'Bâtiments', {
   enabled: { value: true, label: 'Bâtiments (OpenStreetMap)' },
@@ -92,7 +93,91 @@ export class Buildings implements System {
     }
     this.group.name = 'buildings';
     engine.scene.add(this.group);
+    await this.loadFootprints(base + 'footprints.bin');
     settings.on('buildings.enabled', (v) => (this.group.visible = v as boolean), true);
+  }
+
+  // ---------------------------------------------------------------- collisions (walker)
+  private polys: Float32Array[] = []; // x0, z0, x1, z1, ... per building
+  private grid = new Map<number, number[]>();
+  private static CELL = 32;
+
+  private async loadFootprints(url: string) {
+    let buf: ArrayBuffer;
+    try {
+      buf = await (await fetch(url)).arrayBuffer();
+    } catch {
+      return;
+    }
+    const dv = new DataView(buf);
+    const n = dv.getUint32(0, true);
+    let o = 4;
+    const C = Buildings.CELL;
+    for (let b = 0; b < n; b++) {
+      const k = dv.getUint8(o);
+      const poly = new Float32Array(k * 2);
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (let i = 0; i < k; i++) {
+        poly[i * 2] = dv.getFloat32(o + 4 + i * 8, true);
+        poly[i * 2 + 1] = dv.getFloat32(o + 8 + i * 8, true);
+        x0 = Math.min(x0, poly[i * 2]); x1 = Math.max(x1, poly[i * 2]);
+        z0 = Math.min(z0, poly[i * 2 + 1]); z1 = Math.max(z1, poly[i * 2 + 1]);
+      }
+      o += 4 + k * 8;
+      const id = this.polys.push(poly) - 1;
+      for (let cz = Math.floor(z0 / C); cz <= Math.floor(z1 / C); cz++) {
+        for (let cx = Math.floor(x0 / C); cx <= Math.floor(x1 / C); cx++) {
+          const key = cz * 100000 + cx;
+          let l = this.grid.get(key);
+          if (!l) this.grid.set(key, (l = []));
+          l.push(id);
+        }
+      }
+    }
+    this.stats.buildings = n;
+    worldColliders.push((p, r) => this.pushOut(p, r));
+  }
+
+  /** Pushes a circle out of the building footprints near it. */
+  pushOut(p: { x: number; z: number }, r: number) {
+    if (!buildingSettings.enabled) return;
+    const C = Buildings.CELL;
+    const seen = new Set<number>();
+    for (let cz = Math.floor((p.z - r) / C); cz <= Math.floor((p.z + r) / C); cz++) {
+      for (let cx = Math.floor((p.x - r) / C); cx <= Math.floor((p.x + r) / C); cx++) {
+        const l = this.grid.get(cz * 100000 + cx);
+        if (!l) continue;
+        for (const id of l) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+          this.pushOutOf(this.polys[id], p, r);
+        }
+      }
+    }
+  }
+
+  private pushOutOf(poly: Float32Array, p: { x: number; z: number }, r: number) {
+    // closest point on the outline + inside test (crossing number)
+    const n = poly.length / 2;
+    let best = Infinity, bx = 0, bz = 0, inside = false;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const ax = poly[j * 2], az = poly[j * 2 + 1], cx = poly[i * 2], cz = poly[i * 2 + 1];
+      if ((cz > p.z) !== (az > p.z) && p.x < ((ax - cx) * (p.z - cz)) / (az - cz) + cx) inside = !inside;
+      const ex = cx - ax, ez = cz - az;
+      const t = Math.max(0, Math.min(1, ((p.x - ax) * ex + (p.z - az) * ez) / (ex * ex + ez * ez || 1)));
+      const qx = ax + ex * t, qz = az + ez * t;
+      const d = (p.x - qx) ** 2 + (p.z - qz) ** 2;
+      if (d < best) { best = d; bx = qx; bz = qz; }
+    }
+    const d = Math.sqrt(best);
+    if (!inside && d >= r) return;
+    // direction from the outline to the point (flipped when inside)
+    let dx = p.x - bx, dz = p.z - bz;
+    const l = Math.hypot(dx, dz) || 1;
+    dx /= l; dz /= l;
+    if (inside) { dx = -dx; dz = -dz; }
+    p.x = bx + dx * r;
+    p.z = bz + dz * r;
   }
 
   private makeMaterial() {

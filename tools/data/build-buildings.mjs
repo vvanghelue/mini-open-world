@@ -168,6 +168,7 @@ function simplify(pts) {
 // ------------------------------------------------------------------ build
 const osm = JSON.parse(fs.readFileSync(path.join(ROOT, 'data-raw/osm/buildings.json'), 'utf8'));
 let nGable = 0, nFlat = 0, nSkip = 0;
+const footprints = []; // collision outlines (x, z) for the walker
 for (const el of osm.elements) {
   const tags = el.tags || {};
   const type = tags.building;
@@ -214,6 +215,7 @@ for (const el of osm.elements) {
   if (gable) {
     nGable++;
     const { c, ax, bx, hl, hw } = rect;
+    footprints.push([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([su, sv]) => [c[0] + ax[0] * hl * su + bx[0] * hw * sv, c[1] + ax[1] * hl * su + bx[1] * hw * sv]));
     const tanP = Math.tan((pitchDeg * Math.PI) / 180);
     const ridgeY = eaveY + hw * tanP;
     const o = Math.min(1.1, 0.35 + hw * 0.08); // eave overhang
@@ -247,6 +249,7 @@ for (const el of osm.elements) {
     }
   } else {
     nFlat++;
+    footprints.push(pts);
     const roofY = eaveY;
     // walls
     let u = 0;
@@ -308,4 +311,19 @@ for (const T of [...tiles.values()].sort((a, b) => a.tz * NT + a.tx - (b.tz * NT
 }
 fs.writeFileSync(path.join(OUT, 'buildings.bin'), Buffer.concat(chunks));
 fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));
+// footprints: u16 count, then per building u8 vertex count + f32 (x, z) pairs
+{
+  const parts = [Buffer.from(new Uint16Array([0, 0]).buffer)];
+  let n = 0;
+  for (const f of footprints) {
+    if (f.length > 255) continue;
+    const b = Buffer.alloc(4 + f.length * 8);
+    b.writeUInt8(f.length, 0);
+    for (let i = 0; i < f.length; i++) { b.writeFloatLE(f[i][0], 4 + i * 8); b.writeFloatLE(f[i][1], 8 + i * 8); }
+    parts.push(b);
+    n++;
+  }
+  parts[0].writeUInt32LE(n, 0);
+  fs.writeFileSync(path.join(OUT, 'footprints.bin'), Buffer.concat(parts));
+}
 console.log(`buildings: ${nGable} gabled, ${nFlat} flat, ${nSkip} skipped; ${index.tiles.length} tiles, ${totalV} vertices, ${totalT} triangles, ${(offset / 1e6).toFixed(1)} MB`);
