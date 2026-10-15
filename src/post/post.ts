@@ -68,7 +68,7 @@ export class Post implements System {
     // volumetric clouds at reduced resolution, composited over the scene at internal resolution
     let color: any = sceneColor;
     if (this.clouds) {
-      const cloudTex: any = rtt(this.clouds.marchNode(depth), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
+      const cloudTex: any = rtt(this.clouds.marchNode(depth, engine.camera), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
       cloudTex.setResolutionScale(renderSettings.resolutionScale * cloudSettings.resolution);
       // water reflections at half internal resolution (lighting/water-reflection.ts), weighted at full resolution
       const wmask = scenePass.getTextureNode('wmask');

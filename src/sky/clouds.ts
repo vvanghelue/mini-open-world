@@ -180,18 +180,22 @@ export class Clouds implements System {
   }
 
   /** TSL: ray-march node for an RTT pass. depthNode: scene depth texture node (same resolution or larger). */
-  marchNode(depthNode) {
+  marchNode(depthNode, camera: THREE.Camera) {
+    // explicit scene-camera uniforms: inside an RTT quad pass the built-in camera nodes are not the scene camera
+    const uCamPos = uniform(new THREE.Vector3()).onFrameUpdate(() => uCamPos.value.copy(camera.position));
+    const uCamWorld = uniform(new THREE.Matrix4()).onFrameUpdate(() => uCamWorld.value.copy(camera.matrixWorld));
+    const uProjInv = uniform(new THREE.Matrix4()).onFrameUpdate(() => uProjInv.value.copy((camera as any).projectionMatrixInverse));
     const atmo = this.atmosphere;
     return Fn(() => {
       const suv = uv();
       const ndc = vec2(suv.x.mul(2).sub(1), float(1).sub(suv.y.mul(2)));
       const d = depthNode.sample(suv).r;
-      const vp = cameraProjectionMatrixInverse.mul(vec4(ndc, d, 1));
+      const vp = uProjInv.mul(vec4(ndc, d, 1));
       const viewPos = vp.xyz.div(vp.w);
       const sceneDist = length(viewPos);
       const isSky = d.lessThanEqual(0.0000001);
-      const dir = normalize(cameraWorldMatrix.mul(vec4(viewPos, 0)).xyz);
-      const ro = cameraPosition;
+      const dir = normalize(uCamWorld.mul(vec4(viewPos, 0)).xyz);
+      const ro = uCamPos;
       const out = vec4(0, 0, 0, 1).toVar();
       If(this.uEnabled.greaterThan(0.5), () => {
         // intersect the slab
@@ -253,7 +257,7 @@ export class Clouds implements System {
           // aerial perspective at the first cloud hit; very distant clouds dissolve into the haze
           If(firstHit.greaterThan(0), () => {
             const hp = ro.add(dir.mul(firstHit));
-            const ap = atmo.aerialPerspective(hp, suv);
+            const ap = atmo.aerialPerspective(hp, suv, uCamPos);
             const fade = float(1).sub(smoothstep(30000, 60000, firstHit));
             L.assign(L.mul(ap.T).add(ap.S.mul(float(1).sub(T))).mul(fade));
             T.assign(mix(float(1), T, fade));
