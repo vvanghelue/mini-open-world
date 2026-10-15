@@ -77,6 +77,11 @@ uncapped stress at 2560×1440 throttles the fanless Air ~2x within 2-3 minutes (
 cold, every path is within budget at both resolutions; hot, the two heaviest paths exceed 10 ms p95 at 2560×1440
 even at the governor floor. CPU fixes (shadow-pass material versions, frozen static matrices): real window
 209–313 fps cold (221–348 before roads, rocks and buildings were added; the fixes recovered most of that cost).
+Hot sustained stress (2 × 40 s × 4 paths at 2560×1440 after ~1 h of continuous load): p95 8.0–9.5 ms on 7 of 8 runs,
+valley 10.2 ms once (was 13–16 ms before the CPU work); excess frames sit in the first segment after each path's
+teleport. Real window hot: 155–224 fps; visible capped 60 Hz: steady, full quality.
+Bugs found by these checks: clouds and water reflections were computed from a wrong camera inside their RTT passes
+(clouds stuck to the screen) — fixed with explicit scene-camera uniforms.
 Also: rocks/boulders (scatter + walker collisions), walker collides with buildings.
 Also: OSM roads and hiking trails, procedural audio, impostor depth pre-pass.
 Adaptive governor: dynamic internal resolution (0.40–0.60) then detail level, targeting 100 fps uncapped and

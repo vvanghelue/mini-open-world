@@ -13,8 +13,10 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - Dynamic resolution (`post/dynamic-resolution.ts`, on by default): internal scale between `render.minResolutionScale`
   and `render.resolutionScale`, target `render.targetFps` uncapped; vsync-capped it only drops on missed frames.
   `bench` reports the mean/min scale; `ab.mjs` disables it unless `--dyn` (else it absorbs the measured difference).
-  Second stage: at the resolution floor, `adaptive.quality` (core/adaptive.ts) shortens forest/grass/rock detail
-  distances (`qualityScaled()`); restored first when there is headroom. HUD shows the internal res and detail level.
+  Second stage: at the resolution floor, `adaptive.quality` (core/adaptive.ts) shortens forest/grass/rock/building/
+  road distances, terrain LOD, cloud and reflection steps, distant forest density (`qualityScaled()`) and alternates
+  the shadow cascades. Third (last) stage: output canvas at 80 % (`adaptive.outputScale`, held >= 30 s). Restored in
+  reverse order. `render.forceDetail` (hidden) pins the detail level for A/B. HUD shows all three.
   Vsync detection = quantised intervals (multiples of the display period). Validate governor changes in a VISIBLE
   capped Chrome (`run.mjs --headful --capped --width=1470 --height=830`): headless vsync has no display jitter and hid
   a bug that dropped quality to the minimum at a steady 60 fps.
@@ -35,6 +37,10 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   CPU-bound (main thread 100 % busy, ~4.4 ms of three.js JS): two fixes made it GPU-bound again — the shadow-pass
   alphaTest version patch (`core/three-patches.ts`) and `freezeStatic()` (`core/static.ts`) for every static object.
   Profile with `tools/profile.mjs --width=1470 --height=830`; a high `submit` share means GPU-bound (good).
+- At the governor floor the frame is CPU-bound: three.js spends ~40 us of JS per render object and per pass
+  (node materials force a FULL refresh of every object every frame — `NodeMaterialObserver.hasNode`). Fewer objects
+  is the lever: empty forest draws are skipped (async instance-count readback), cascades alternate under load.
+  Tried without gain: `BundleGroup` render bundles (no CPU gain, broke near trees) — don't retry.
 - Thermal throttling measured with `tools/dev/thermal.mjs`: same workload 4.5 ms cold -> 8.9 ms after 2.5 min of
   uncapped load (x1.95), back to cold speed after ~1 min of rest. Uncapped stress numbers depend on the run order.
 - Uncapped Chrome has rare 10–14 ms interval spikes even on an empty page; most p95 excursions are real load at
