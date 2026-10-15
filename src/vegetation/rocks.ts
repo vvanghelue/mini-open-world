@@ -16,6 +16,7 @@ import { settings } from '../core/settings';
 import type { Terrain } from '../terrain/terrain';
 import { skyVisAt, terrainHooks } from '../terrain/terrain-material';
 import { worldColliders } from '../world/colliders';
+import { qualityScaled } from '../core/adaptive';
 
 export const rockSettings = settings.group('rocks', 'Rochers', {
   enabled: { value: true, label: 'Rochers et blocs' },
@@ -283,14 +284,15 @@ export class Rocks implements System {
     const s = rockSettings;
     if (!s.enabled) return;
     const cam = this.engine.camera;
-    const D = visDist(SMAX) * s.distance;
+    const distMul = qualityScaled(s.distance, 0.6); // adaptive detail
+    const D = visDist(SMAX) * distMul;
     const agl = cam.position.y - this.terrain.heightAt(cam.position.x, cam.position.z);
     const show = agl < D;
     for (const m of this.meshes) m.visible = show;
     if (!show) return;
     this.uCam.value.copy(cam.position);
     this.uDensity.value = s.density;
-    this.uDistMul.value = s.distance;
+    this.uDistMul.value = distMul;
     const n = Math.ceil((2 * D) / GRID) + 1;
     this.uOrigin.value.set(Math.floor((cam.position.x - D) / GRID), Math.floor((cam.position.z - D) / GRID));
     this.uN.value = n;

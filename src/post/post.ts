@@ -9,9 +9,11 @@ import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
 import { taauLite } from './taau-lite';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { lensflare } from 'three/addons/tsl/display/LensflareNode.js';
-import type { Engine, System } from '../core/engine';
+import type { Engine, System, FrameContext } from '../core/engine';
 import { renderSettings } from '../core/engine';
 import { settings } from '../core/settings';
+import { DynamicResolution } from './dynamic-resolution';
+import { adaptive } from '../core/adaptive';
 
 export const postSettings = settings.group('post', 'Post-traitement', {
   upscaler: { value: 'lite', options: { 'TAAU léger (rapide)': 'lite', 'TAAU three.js': 'taau', 'Bilinéaire': 'bilinear' }, label: 'Upscaling' },
@@ -37,6 +39,8 @@ export class Post implements System {
   private sharpenNode: any;
   private liteNode: any;
   private liteOut: any;
+  private dyn!: DynamicResolution;
+  private resizeClouds: (s: number) => void = () => {};
   private uSharpen = uniform(0.25);
 
   constructor(private clouds: Clouds | null = null) {}
@@ -72,8 +76,12 @@ export class Post implements System {
         cloudTex.setResolutionScale(renderSettings.resolutionScale * cloudSettings.resolution);
         comp.setResolutionScale(renderSettings.resolutionScale);
       };
-      settings.on('render.resolutionScale', resize);
-      settings.on('clouds.resolution', resize);
+      this.resizeClouds = (s: number) => {
+        cloudTex.setResolutionScale(s * cloudSettings.resolution);
+        comp.setResolutionScale(s);
+      };
+      settings.on('clouds.resolution', () => this.resizeClouds(this.dyn.state.scale));
+      void resize;
     }
     this.taauNode = taau(color, depth, vel, engine.camera);
     this.sharpenNode = sharpen(this.taauNode.getTextureNode(), postSettings.sharpen);
@@ -93,7 +101,14 @@ export class Post implements System {
     engine.pipeline = pipeline;
     this.rebuild();
 
-    settings.on('render.resolutionScale', (v) => scenePass.setResolutionScale(v as number));
+    // dynamic resolution drives the internal scale (renderSettings.resolutionScale is its maximum)
+    this.dyn = new DynamicResolution((s) => {
+      scenePass.setResolutionScale(s);
+      this.resizeClouds(s);
+    });
+    settings.on('render.resolutionScale', () => this.dyn.reset());
+    settings.on('render.dynamicResolution', () => this.dyn.reset());
+    settings.on('render.minResolutionScale', () => this.dyn.reset());
     settings.on('post.sharpen', (v) => {
       this.sharpenNode.sharpness.value = v;
       this.uSharpen.value = v as number;
@@ -105,6 +120,13 @@ export class Post implements System {
       r.toneMapping = TONE[v as string] ?? THREE.AgXToneMapping;
       this.engine.pipeline.needsUpdate = true;
     });
+  }
+
+  update(ctx: FrameContext) {
+    this.dyn.update(ctx.intervalMs);
+    adaptive.scale = this.dyn.state.scale;
+    adaptive.capped = this.dyn.state.capped;
+    adaptive.quality = this.dyn.state.quality;
   }
 
   private rebuild() {

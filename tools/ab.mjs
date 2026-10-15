@@ -2,6 +2,7 @@
 // Robust A/B performance comparison: one Chrome session, settings variants interleaved (A B C A B C ...) on the
 // same camera path, so thermal throttling and background noise affect all variants equally.
 //   node tools/ab.mjs --path=valley --seconds=4 --rounds=3 'forest.enabled=false' 'forest.enabled=true'
+// Dynamic resolution is disabled unless --dyn (it would otherwise absorb the differences being measured).
 // Each variant is a comma-separated list of settings (applied before its run). Reports mean frame ms per variant.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,12 +41,13 @@ try {
   const results = variants.map(() => []);
   for (let r = 0; r < rounds; r++) {
     for (let i = 0; i < variants.length; i++) {
-      const res = await page.evaluate(async (defaults, kv, p, s, range) => {
+      const res = await page.evaluate(async (defaults, kv, p, s, range, dyn) => {
         await window.agent.run('set', defaults); // reset every setting, then apply this variant
+        if (!dyn) await window.agent.run('set', { 'render.dynamicResolution': false }); // fixed resolution: fair comparison
         await window.agent.run('set', kv);
         const out = await window.agent.run('bench', { paths: [p], seconds: s, warmup: 1, range });
         return out[p].frameMs;
-      }, defaults, parse(variants[i]), pathName, seconds, range);
+      }, defaults, parse(variants[i]), pathName, seconds, range, !!opts.dyn);
       results[i].push(res.mean);
     }
   }

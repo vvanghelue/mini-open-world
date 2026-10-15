@@ -14,6 +14,7 @@ import { settings } from '../core/settings';
 import type { Terrain } from '../terrain/terrain';
 import { windUniforms, sunUniforms } from './tree-materials';
 import { makeVertexLighting } from '../lighting/vertex-lighting';
+import { qualityScaled } from '../core/adaptive';
 
 export const grassSettings = settings.group('grass', 'Herbe', {
   enabled: { value: true, label: 'Herbe 3D' },
@@ -242,10 +243,11 @@ export class Grass implements System {
     this.mesh.visible = agl < s.distance * 1.5;
     if (!this.mesh.visible) return;
     this.uCam.value.copy(cam.position);
-    this.uDist.value = s.distance;
+    const dist = qualityScaled(s.distance, 0.6); // adaptive detail
+    this.uDist.value = dist;
     this.uDensity.value = s.density;
     this.uHeight.value = s.height;
-    const D = s.distance;
+    const D = dist;
     this.gridN = Math.ceil((2 * D) / SPACING) + 1;
     this.uOrigin.value.set(Math.floor((cam.position.x - D) / SPACING), Math.floor((cam.position.z - D) / SPACING));
     this.uN.value = this.gridN;

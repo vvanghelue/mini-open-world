@@ -21,6 +21,7 @@ import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
 import { Rocks } from './vegetation/rocks';
 import { AudioSystem } from './audio/audio';
+import { adaptive } from './core/adaptive';
 import { makeTerrainReflection } from './lighting/water-reflection';
 import { BounceGI } from './lighting/bounce-gi';
 import { Airfield } from './world/airfield';
@@ -101,7 +102,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, buildings, roads, forest, grass, rocks, player, clouds };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, buildings, roads, forest, grass, rocks, player, clouds, adaptive };
   (window as any).app = app;
   registerBuiltinCommands(app);
 

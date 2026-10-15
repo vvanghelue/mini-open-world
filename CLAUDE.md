@@ -10,6 +10,13 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   fewer pixels: `node tools/bench.mjs --width=1470 --height=830` (≈ 230–350 fps).
 - The Air throttles when hot (up to ~45 % slower): compare variants **interleaved in one session** with
   `tools/ab.mjs`, never two separate bench runs. ABA (`git stash`) for code changes that are not settings.
+- Dynamic resolution (`post/dynamic-resolution.ts`, on by default): internal scale between `render.minResolutionScale`
+  and `render.resolutionScale`, target `render.targetFps` uncapped; vsync-capped it only drops on missed frames.
+  `bench` reports the mean/min scale; `ab.mjs` disables it unless `--dyn` (else it absorbs the measured difference).
+  Second stage: at the resolution floor, `adaptive.quality` (core/adaptive.ts) shortens forest/grass/rock detail
+  distances (`qualityScaled()`); restored first when there is headroom. HUD shows the internal res and detail level.
+- Background system load (Spotlight `mds_stores`, `mediaanalysisd` indexing new screenshots) can double frame times:
+  check `node tools/dev/minimal-probe.mjs` (empty page ≈ 0.45 ms, few spikes) before trusting absolute numbers.
 - The in-app browser pane and normal Chrome are vsync-capped (60 fps max): never use them for perf numbers.
   `npm run uncapped` opens a separate Chrome without the cap (lets the user see real fps).
 - GPU timestamp queries are unusable on Apple (`?gpuTiming` gives nonsense). `queue.onSubmittedWorkDone` latency

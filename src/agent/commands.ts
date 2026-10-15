@@ -3,6 +3,7 @@ import { Vector3 } from 'three/webgpu';
 import { registerCommand, listCommands, getLogs, writeProjectFile } from './bridge';
 import { settings, SettingValue } from '../core/settings';
 import { summarize, timeline } from '../core/stats';
+import { adaptive } from '../core/adaptive';
 import { POIS, lv95ToWorld, worldToLV95 } from '../world/geo';
 import { resolvePath, BENCH_PATHS } from './bench-paths';
 import type { App } from '../app';
@@ -201,12 +202,18 @@ export function registerBuiltinCommands(app: App) {
         const total = def.seconds + (warmup ?? 3);
         let t0 = -1;
         const rec = { interval: [] as number[], cpu: [] as number[], gpu: [] as number[] };
+        const scales: number[] = [];
+        const quals: number[] = [];
         await new Promise<void>((resolve) => {
           engine.driver = () => {
             const now = performance.now() / 1000;
             if (t0 < 0) t0 = now;
             const el = now - t0;
             if (el >= (warmup ?? 3) && !engine.stats.recorder) engine.stats.recorder = rec;
+            if (engine.stats.recorder) {
+              scales.push(adaptive.scale);
+              quals.push(adaptive.quality);
+            }
             const u = u0 + (u1 - u0) * Math.min(1, Math.max(0, (el - (warmup ?? 3)) / def.seconds));
             pos.getPointAt(u, engine.camera.position);
             look.getPointAt(u, _v);
@@ -223,6 +230,8 @@ export function registerBuiltinCommands(app: App) {
           label: def.label,
           frameMs: summarize(rec.interval),
           timeline: timeline(rec.interval),
+          scale: { mean: Math.round((scales.reduce((a, b) => a + b, 0) / Math.max(1, scales.length)) * 1000) / 1000, min: Math.min(...scales) },
+          quality: { mean: Math.round((quals.reduce((a, b) => a + b, 0) / Math.max(1, quals.length)) * 100) / 100, min: Math.min(...quals) },
           cpuMs: summarize(rec.cpu),
           gpuMs: summarize(rec.gpu),
           drawCalls: engine.stats.drawCalls,

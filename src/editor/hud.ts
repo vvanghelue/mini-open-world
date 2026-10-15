@@ -3,6 +3,7 @@ import { Vector2 } from 'three/webgpu';
 import type { Engine } from '../core/engine';
 import { renderSettings } from '../core/engine';
 import { settings } from '../core/settings';
+import { adaptive } from '../core/adaptive';
 
 export const uiSettings = settings.group('ui', 'Interface', {
   hud: { value: true, label: 'Afficher les stats (HUD)' },
@@ -41,12 +42,12 @@ export class Hud {
     this.last = now;
     const s = this.engine.stats.summary();
     this.engine.renderer.getDrawingBufferSize(_size);
-    const sc = renderSettings.resolutionScale;
+    const sc = renderSettings.dynamicResolution ? adaptive.scale : renderSettings.resolutionScale;
     const lines = [
       `${s.fps.toFixed(0).padStart(4)} fps   frame ${s.intervalMs.mean.toFixed(2)} ms (p99 ${s.intervalMs.p99.toFixed(1)})`,
       `CPU ${s.cpuMs.mean.toFixed(2)} ms   GPU ${s.gpuMs ? s.gpuMs.mean.toFixed(2) + ' ms' : 'n/a'}`,
       `draws ${s.drawCalls}   tris ${(s.triangles / 1e6).toFixed(2)} M   compute ${s.computeCalls}`,
-      `sortie ${_size.x}x${_size.y}   interne ${Math.round(_size.x * sc)}x${Math.round(_size.y * sc)}`,
+      `sortie ${_size.x}x${_size.y}   interne ${Math.round(_size.x * sc)}x${Math.round(_size.y * sc)} (${Math.round(sc * 100)} %${renderSettings.dynamicResolution ? (adaptive.capped ? ', dyn. vsync' : ', dyn.') : ''}${adaptive.quality < 0.999 ? `, détail ${Math.round(adaptive.quality * 100)} %` : ''})`,
     ];
     for (const fn of this.lines.values()) lines.push(fn());
     this.element.textContent = lines.join('\n');

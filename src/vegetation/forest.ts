@@ -21,6 +21,7 @@ import { generateTree, TREE_PRESETS, GeneratedTree, TwigRect } from './tree-gene
 import { makeFoliageMaterial, makeFoliageDepthMaterial, makeBarkMaterial, InstanceXform, TreeTextures, sunUniforms, windUniforms, fadeVisible } from './tree-materials';
 import { bakeImpostors, impostorShaderParts, ImpostorAtlas, IMP_N, IMP_COLS } from './impostors';
 import { registerCommand } from '../agent/bridge';
+import { qualityScaled } from '../core/adaptive';
 import { lightingHooks } from '../lighting/vertex-lighting';
 
 export const forestSettings = settings.group('forest', 'Forêt', {
@@ -601,8 +602,10 @@ export class Forest implements System {
     cam.updateMatrixWorld();
     this.uCam.value.copy(cam.position);
     this.uDensity.value = s.density;
-    this.uD0.value = s.lod0Distance;
-    this.uD1.value = Math.max(s.lod1Distance, s.lod0Distance * 1.3);
+    // adaptive detail (core/adaptive.ts) shortens the mesh LOD distances under load
+    const d0 = qualityScaled(s.lod0Distance, 0.75), d1 = qualityScaled(s.lod1Distance, 0.65);
+    this.uD0.value = d0;
+    this.uD1.value = Math.max(d1, d0 * 1.3);
     this.uD2.value = s.maxDistance;
     this.uTreeline.value = s.treeline;
     // horizontal offset of a tree's shadow (towards -sun), capped

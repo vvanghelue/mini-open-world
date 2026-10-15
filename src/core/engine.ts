@@ -6,6 +6,8 @@ export interface FrameContext {
   dt: number; // seconds, clamped
   time: number; // seconds since start (simulation clock)
   frame: number;
+  /** Measured wall-clock interval since the previous frame (ms). */
+  intervalMs: number;
 }
 
 export interface System {
@@ -22,7 +24,10 @@ export const renderSettings = settings.group(
   'render',
   'Rendu',
   {
-    resolutionScale: { value: 0.6, min: 0.3, max: 1, step: 0.05, label: 'Résolution interne', help: 'Fraction de la résolution de sortie réellement calculée (upscaling TAAU).' },
+    resolutionScale: { value: 0.6, min: 0.3, max: 1, step: 0.05, label: 'Résolution interne (max)', help: 'Fraction de la résolution de sortie réellement calculée (upscaling TAAU). Maximum de la résolution dynamique.' },
+    dynamicResolution: { value: true, label: 'Résolution dynamique', help: 'Baisse la résolution interne dans les scènes lourdes pour tenir la cible (et la remonte ensuite).' },
+    targetFps: { value: 100, min: 30, max: 240, step: 5, label: 'Cible (fps, sans vsync)' },
+    minResolutionScale: { value: 0.4, min: 0.25, max: 1, step: 0.05, label: 'Résolution interne min' },
     outputPixelRatio: { value: 1, min: 0.5, max: 2, step: 0.25, label: 'Densité sortie', help: 'Pixel ratio du canvas (1 = 1 pixel par point CSS).' },
     fov: { value: 60, min: 30, max: 100, step: 1, label: 'Champ de vision' },
     paused: { value: false, label: 'Pause' },
@@ -148,7 +153,7 @@ export class Engine {
     const paused = renderSettings.paused;
     const dt = this.fixedDt ?? Math.min(0.1, interval / 1000);
     if (!paused) this.time += dt;
-    const ctx: FrameContext = { dt: paused ? 0 : dt, time: this.time, frame: this.frame };
+    const ctx: FrameContext = { dt: paused ? 0 : dt, time: this.time, frame: this.frame, intervalMs: interval };
 
     this.driver?.(ctx);
     for (const s of this.systems) s.update?.(ctx);
