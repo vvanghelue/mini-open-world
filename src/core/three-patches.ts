@@ -11,3 +11,20 @@ proto.getBuiltins = function (this: any, stage: string) {
   if (stage === 'vertex' && this.material?.userData?.invariantPosition) return s.replace('@builtin( position )', '@invariant @builtin( position )');
   return s;
 };
+
+// Shadow pass: three renders every caster with ONE shared override material and copies the caster's alphaTest onto
+// it. The Material.alphaTest setter bumps `version` whenever the value crosses 0, so mixing cut-out casters (foliage)
+// with opaque ones (buildings, rocks) bumped the shared material's version several times per frame, and every
+// shadow render object then recomputed its full cache key (material properties + node graph hashing): ~1 ms of JS
+// per frame. Each caster has its own render object in that pass, built from its own (stable) override state, so the
+// bumps are useless there: they are suppressed for shadow-pass materials only.
+const matProto = THREE.Material.prototype as any;
+const alphaDesc = Object.getOwnPropertyDescriptor(matProto, 'alphaTest')!;
+Object.defineProperty(matProto, 'alphaTest', {
+  configurable: true,
+  get: alphaDesc.get,
+  set(this: any, value: number) {
+    if (this.isShadowPassMaterial) this._alphaTest = value;
+    else alphaDesc.set!.call(this, value);
+  },
+});
