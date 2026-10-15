@@ -29,6 +29,9 @@ export class DynamicResolution {
   readonly state: DynResState = { scale: renderSettings.resolutionScale, capped: false, period: 16.67, quality: 1 };
   private qTarget = 1;
   private uncappedVotes = 0;
+  // large overload (p90 > 1.3 x target, e.g. full quality after a load or a teleport into a heavy view): decide
+  // twice as often, take double detail steps and glide faster, so the floor is reached in ~3 s instead of ~12 s
+  private urgent = false;
   private probe: { from: number; metric: number } | null = null; // pending check of the last resolution drop
   private resBlockedUntil = -1;
   private probeStrikes = 0; // recent ineffective resolution drops
@@ -68,12 +71,14 @@ export class DynamicResolution {
     if (!this.atFloor() && this.clock >= this.resBlockedUntil) {
       const from = this.state.scale;
       this.set(Math.min(scaleTarget, from - 2 * STEP));
-      if (this.state.scale < from) this.probe = { from, metric };
+      // the effectiveness check is skipped under a large overload: every lever is taken (a fast-changing view then
+      // makes the check unreliable, and being over budget costs more than a possibly useless reallocation)
+      if (this.state.scale < from && !this.urgent) this.probe = { from, metric };
     } else if (this.qTarget > 0) {
-      this.qTarget = Math.max(0, this.qTarget - 0.25);
+      this.qTarget = Math.max(0, this.qTarget - (this.urgent ? 0.5 : 0.25));
       this.sinceChange = 0;
       this.samples.length = 0;
-    } else if (this.state.quality < 0.02 && this.outputScale > OUTPUT_STEPS[OUTPUT_STEPS.length - 1] && this.clock - this.outputSince > 4) {
+    } else if (this.state.quality < 0.02 && this.outputScale > OUTPUT_STEPS[OUTPUT_STEPS.length - 1] && this.clock - this.outputSince > (this.urgent ? 1.5 : 4)) {
       this.applyOutput((this.outputScale = OUTPUT_STEPS[OUTPUT_STEPS.indexOf(this.outputScale) + 1]));
       this.outputSince = this.clock;
       this.sinceChange = 0;
@@ -124,13 +129,13 @@ export class DynamicResolution {
     if (!(intervalMs > 0) || intervalMs > 250) return; // tab switches, debugger pauses
     // detail level glides towards its target (full range in ~3 s)
     const dq = this.qTarget - this.state.quality;
-    this.state.quality += Math.sign(dq) * Math.min(Math.abs(dq), (intervalMs / 1000) * 0.35);
+    this.state.quality += Math.sign(dq) * Math.min(Math.abs(dq), (intervalMs / 1000) * (this.urgent && dq < 0 ? 1 : 0.35));
     this.clock += intervalMs / 1000;
     this.sinceChange += intervalMs / 1000;
-    if (this.clock < 4) return; // loading / shader warm-up hitches are not a load signal
+    if (this.clock < 1.5) return; // loading / shader warm-up hitches are not a load signal
     this.samples.push(intervalMs);
     if (this.samples.length > WINDOW) this.samples.shift();
-    if (this.samples.length < WINDOW || this.sinceChange < 0.8) return;
+    if (this.samples.length < WINDOW || this.sinceChange < (this.urgent ? 0.4 : 0.8)) return;
 
     const sorted = [...this.samples].sort((a, b) => a - b);
     const med = sorted[WINDOW >> 1];
@@ -197,6 +202,7 @@ export class DynamicResolution {
     // uncapped: frame interval = frame cost
     // aim below the budget: the p90 at 90 % of it keeps the tail of the distribution (p99) under the budget
     const target = (1000 / renderSettings.targetFps) * 0.9;
+    this.urgent = p90 > target * 1.3;
     if (p90 > target * 1.02) {
       // proportional step (pixel cost ~ scale^2), at least one step
       const k = Math.sqrt(target / p90);
