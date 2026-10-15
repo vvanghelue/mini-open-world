@@ -197,6 +197,27 @@ export class Terrain implements System {
     return this.data.heightAt(x, z);
   }
 
+  /** CPU forest-cover fraction at (x, z), mirroring the GPU forestNode (core/far blend). */
+  forestAt(x: number, z: number): number {
+    const m = this.data.meta;
+    const sample = (data: Uint8Array, res: number, size: number) => {
+      const fx = Math.min(Math.max((x / size + 0.5) * res - 0.5, 0), res - 1);
+      const fz = Math.min(Math.max((z / size + 0.5) * res - 0.5, 0), res - 1);
+      const x0 = Math.floor(fx), z0 = Math.floor(fz);
+      const x1 = Math.min(x0 + 1, res - 1), z1 = Math.min(z0 + 1, res - 1);
+      const ax = fx - x0, az = fz - z0;
+      const v = (xx: number, zz: number) => data[(zz * res + xx) * 4] / 255; // layer 0, channel R
+      return (v(x0, z0) * (1 - ax) + v(x1, z0) * ax) * (1 - az) + (v(x0, z1) * (1 - ax) + v(x1, z1) * ax) * az;
+    };
+    const far = sample(this.textures.farLandcover.image.data as Uint8Array, 2048, m.far.size);
+    const edge = m.core.size / 2 - Math.max(Math.abs(x), Math.abs(z));
+    if (edge <= 0) return far;
+    const w = Math.min(1, Math.max(0, edge / CORE_BLEND));
+    const ws = w * w * (3 - 2 * w);
+    const core = sample(this.textures.landcover.image.data as Uint8Array, 4096, m.core.size);
+    return far + (core - far) * ws;
+  }
+
   update(_ctx: FrameContext) {
     if (terrainSettings.freezeLod) return;
     const cam = this.engine.camera;

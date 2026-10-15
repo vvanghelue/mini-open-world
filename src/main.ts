@@ -4,6 +4,7 @@ import { settings } from './core/settings';
 import { Terrain } from './terrain/terrain';
 import { Post } from './post/post';
 import { FreeCamera } from './player/free-camera';
+import { Player } from './player/player';
 import { Panel } from './editor/panel';
 import { Hud } from './editor/hud';
 import { startBridge } from './agent/bridge';
@@ -46,7 +47,7 @@ async function main() {
   const terrainShadows = engine.add(new TerrainShadows(terrain, time));
   const forest = engine.add(new Forest(terrain, atmosphere, terrainShadows));
   engine.add(new Post());
-  engine.add({ name: 'player', update: (ctx) => freeCam.update(ctx.dt) });
+  const player = engine.add(new Player(terrain, freeCam, input));
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
@@ -64,13 +65,14 @@ async function main() {
 
   const hud = new Hud(engine);
   const panel = new Panel();
+  hud.lines.set('player', () => player.hudLine());
   hud.lines.set('time', () => {
     const p = engine.camera.position;
     return `heure ${time.label()}   alt ${p.y.toFixed(0)} m   sol ${(p.y - terrain.heightAt(p.x, p.z)).toFixed(0)} m`;
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, forest };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, forest, player };
   (window as any).app = app;
   registerBuiltinCommands(app);
 
