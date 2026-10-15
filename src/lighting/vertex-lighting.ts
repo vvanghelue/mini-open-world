@@ -9,7 +9,8 @@ export const lightingHooks: {
   sunVisibilityAt: ((p: any, cam?: any) => any) | null; // heightfield x clouds (cam: explicit camera position, for computes)
   apAt: ((p: any, suv: any) => { S: any; T: any }) | null;
   skyVisAt: ((xz: any) => any) | null;
-} = { sunVisibilityAt: null, apAt: null, skyVisAt: null };
+  bounceAt: ((xz: any) => any) | null; // one-bounce irradiance from the relief (pre-exposed)
+} = { sunVisibilityAt: null, apAt: null, skyVisAt: null, bounceAt: null };
 
 export const vlSunVis = () => property('float', 'vlSunVis');
 export const vlApS = () => property('vec3', 'vlApS');

@@ -29,7 +29,9 @@ export const terrainHooks: {
   skyVis: ((xz: any) => any) | null;
   /** Reflected radiance for water: (origin, direction, sky radiance along direction) -> radiance. */
   reflection: ((o: any, d: any, sky: any) => any) | null;
-} = { sky: null, skyVis: null, reflection: null };
+  /** One-bounce irradiance from the surrounding relief at world xz (lighting/bounce-gi.ts). */
+  bounce: ((xz: any) => any) | null;
+} = { sky: null, skyVis: null, reflection: null, bounce: null };
 
 /** Sky visibility at world xz if available (late-bound), else 1. */
 export const skyVisAt = (xz: any) => (terrainHooks.skyVis ? terrainHooks.skyVis(xz) : float(1));
@@ -70,6 +72,7 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
   const pRough = property('float', 'terrainRough');
   const pAO = property('float', 'terrainAO');
   const pWater = property('float', 'terrainWater');
+  const pAlbedo = property('vec3', 'terrainAlbedo');
   mat.colorNode = Fn(() => {
     const p = positionWorld;
     const xz = p.xz;
@@ -239,13 +242,15 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
     pNormal.assign(nWorld);
     pRough.assign(rough);
     pAO.assign(ao);
+    pAlbedo.assign(albedo);
     return vec4(albedo, 1);
   })();
   mat.normalNode = transformNormalToView(pNormal);
   // water reflections: terrain (heightfield ray march, lighting/water-reflection.ts) + sky, Fresnel-weighted
   // (late-bound: the atmosphere is initialised after the terrain)
   (mat as any).emissiveNode = Fn(() => {
-    const out = vec3(0).toVar();
+    // light bounced by the surrounding relief (diffuse, occluded like the sky light)
+    const out = (terrainHooks.bounce ? pAlbedo.mul(terrainHooks.bounce(positionWorld.xz)).mul(pAO.mul(1 / Math.PI)) : vec3(0)).toVar();
     If(pWater.greaterThan(0.001), () => {
       if (!terrainHooks.sky) return;
       const v = normalize(positionWorld.sub(cameraPosition));
@@ -258,7 +263,7 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
       const F = float(0.02).add(float(0.98).mul(pow(float(1).sub(cosT), 5)));
       const sky = terrainHooks.sky(rr);
       const refl = terrainHooks.reflection ? terrainHooks.reflection(positionWorld.add(vec3(0, 0.3, 0)), rr, sky) : sky;
-      out.assign(refl.mul(F).mul(pWater));
+      out.addAssign(refl.mul(F).mul(pWater));
     });
     return out;
   })();

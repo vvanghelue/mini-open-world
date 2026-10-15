@@ -20,6 +20,26 @@ function waitFrames(app: App, n: number) {
   });
 }
 
+/** Index of the last top-level statement separator (';' or a block's closing '}'), -1 if none. */
+function lastStatementCut(src: string) {
+  let depth = 0, quote = '', cut = -1;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = '';
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') quote = c;
+    else if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') {
+      depth--;
+      if (c === '}' && depth === 0 && src.slice(i + 1).trim() && !/^[\s]*[).,\]]/.test(src.slice(i + 1))) cut = i;
+    } else if (c === ';' && depth === 0) cut = i;
+  }
+  return cut;
+}
+
 export function registerBuiltinCommands(app: App) {
   const { engine } = app;
 
@@ -129,8 +149,8 @@ export function registerBuiltinCommands(app: App) {
   );
   registerCommand('eval', 'Evaluate JS in the app (window.app available): {code}', async ({ code, _ }) => {
     const src: string = (code ?? _?.join(' ')).trim().replace(/;$/, '');
-    // REPL-like: without an explicit return, the last statement's value is returned
-    const cut = src.lastIndexOf(';');
+    // REPL-like: without an explicit return, the last top-level statement's value is returned
+    const cut = lastStatementCut(src);
     const body = src.includes('return') ? src : cut >= 0 ? `${src.slice(0, cut + 1)} return ${src.slice(cut + 1)}` : `return ${src}`;
     // eslint-disable-next-line no-new-func
     const fn = new Function('app', `return (async () => { ${body} })()`);

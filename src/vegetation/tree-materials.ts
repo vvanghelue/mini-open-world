@@ -15,7 +15,7 @@ let matId = 0;
 import {
   Fn, texture, uniform, vec3, vec4, float, attribute, positionLocal, normalLocal, sin, time, mix, pow, clamp, dot,
   normalize, positionWorld, cameraPosition, uv, normalMap, transformNormalToView, interleavedGradientNoise,
-  screenCoordinate, select,
+  screenCoordinate, select, varying,
 } from 'three/tsl';
 
 export interface TreeTextures {
@@ -31,7 +31,7 @@ export interface InstanceXform {
   seed: any; // per-instance random 0..1
   fade: any; // cross-fade value v (see header)
   /** Per-instance lighting from the scatter compute: sun visibility at the base / top of the tree, AP, sky. */
-  lighting?: { S: any; T: any; sunBase: any; sunTop: any; sky: any };
+  lighting?: { S: any; T: any; sunBase: any; sunTop: any; sky: any; bounce: any };
 }
 
 /** Assigns the vertex-lighting varyings from per-instance values (sun visibility interpolated over height). */
@@ -101,13 +101,17 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   const vdata = attribute('vdata', 'vec4');
   const uTint = uniform(tint);
   const seed = xf ? xf.seed : float(0.5);
-  const vl = xf ? makeVertexLighting(`fol${matId++}`) : null;
+  const id = matId++;
+  const vl = xf ? makeVertexLighting(`fol${id}`) : null;
   if (vl) m.userData.vertexLighting = true;
+  // one-bounce irradiance from the relief, per tree (lighting/bounce-gi.ts)
+  const vBounce = xf?.lighting ? varying(vec3(0), `folBounce${id}`) : null;
 
   m.positionNode = Fn(() => {
     if (!xf) return foliagePosition(null);
     const world = foliagePosition(xf).toVar();
     instanceLightingAt(vl!, xf, world, vdata.w);
+    if (vBounce) vBounce.assign(xf.lighting!.bounce);
     return world;
   })();
   if (xf) m.normalNode = transformNormalToView(normalize(xf.normal(normalLocal)));
@@ -138,7 +142,9 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
     (m as any).emissiveNode = Fn(() => {
       const v = normalize(positionWorld.sub(cameraPosition));
       const back = pow(clamp(dot(v, sunUniforms.dir), 0, 1), 6);
-      return tex.rgb.mul(uTint).mul(sunUniforms.color).mul(back).mul(0.12).mul(mix(float(0.4), float(1), ao));
+      const albedo = tex.rgb.mul(uTint).mul(mix(float(0.4), float(1), ao));
+      const bounce = vBounce ? albedo.mul(vBounce).mul(1 / Math.PI) : vec3(0);
+      return albedo.mul(sunUniforms.color).mul(back).mul(0.12).add(bounce);
     })();
   }
   return m;
@@ -146,12 +152,15 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
 
 export function makeBarkMaterial(tx: TreeTextures, xf: InstanceXform | null, treeHeight = 25) {
   const m = new THREE.MeshStandardNodeMaterial();
-  const vl = xf ? makeVertexLighting(`bark${matId++}`) : null;
+  const bid = matId++;
+  const vl = xf ? makeVertexLighting(`bark${bid}`) : null;
+  const vBounce = xf?.lighting ? varying(vec3(0), `barkBounce${bid}`) : null;
   if (xf) {
     m.userData.vertexLighting = true;
     m.positionNode = Fn(() => {
       const world = xf.position(positionLocal).toVar();
       instanceLightingAt(vl!, xf, world, positionLocal.y.div(treeHeight));
+      if (vBounce) vBounce.assign(xf.lighting!.bounce);
       return world;
     })();
     m.normalNode = transformNormalToView(normalize(xf.normal(normalLocal)));
@@ -161,10 +170,12 @@ export function makeBarkMaterial(tx: TreeTextures, xf: InstanceXform | null, tre
   } else {
     m.normalNode = normalMap(texture(tx.barkNormal, uv()));
   }
+  const barkAlbedo = texture(tx.barkAlbedo, uv()).rgb.mul(0.85);
   m.colorNode = Fn(() => {
     vl?.fragment();
-    return texture(tx.barkAlbedo, uv()).rgb.mul(0.85);
+    return barkAlbedo;
   })();
+  if (vBounce) (m as any).emissiveNode = barkAlbedo.mul(vBounce).mul(1 / Math.PI);
   m.roughnessNode = float(0.9);
   m.metalnessNode = float(0);
   return m;

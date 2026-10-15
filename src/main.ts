@@ -20,6 +20,7 @@ import { SkyVisibility } from './lighting/sky-visibility';
 import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
 import { makeTerrainReflection } from './lighting/water-reflection';
+import { BounceGI } from './lighting/bounce-gi';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
@@ -54,6 +55,7 @@ async function main() {
   const atmosphere = engine.add(new Atmosphere(time));
   const terrainShadows = engine.add(new TerrainShadows(terrain, time));
   const skyVisibility = engine.add(new SkyVisibility(terrain));
+  const bounceGI = engine.add(new BounceGI(terrain, atmosphere, time, terrainShadows, skyVisibility));
   const forest = engine.add(new Forest(terrain, atmosphere, terrainShadows));
   const grass = engine.add(new Grass(terrain));
   const clouds = engine.add(new Clouds(atmosphere));
@@ -67,9 +69,11 @@ async function main() {
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
   terrainHooks.reflection = makeTerrainReflection(terrain, atmosphere, terrainShadows);
   terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
+  terrainHooks.bounce = (xz) => bounceGI.irradiance(xz);
   lightingHooks.sunVisibilityAt = (p, cam) => (cam ? terrainShadows.visibilityFromAt(p, cam) : terrainShadows.visibilityAt(p)).mul(clouds.shadowAt(p));
   lightingHooks.apAt = (p, suv) => atmosphere.aerialPerspective(p, suv);
   lightingHooks.skyVisAt = (xz) => skyVisibility.visibility(xz);
+  lightingHooks.bounceAt = (xz) => bounceGI.irradiance(xz);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
 
   // Initial view: above Wengen, looking at the Jungfrau.
@@ -87,7 +91,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, forest, grass, player, clouds };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, forest, grass, player, clouds };
   (window as any).app = app;
   registerBuiltinCommands(app);
 

@@ -61,11 +61,12 @@ const LIST_BASE: number[] = [];
 const CAP_TOTAL = LIST_BASE[NLIST - 1] + CAP_IMP[NB - 1];
 
 // instance record: 4 x vec4 = (x, y, z, scale), (rotation, fade, seed, variant), (AP S.rgb, sky visibility),
-// (AP T.rgb, packed sun visibility base/top)
-const INST_STRIDE = 4;
+// (AP T.rgb, packed sun visibility base/top), (bounce irradiance rgb, unused)
+const INST_STRIDE = 5;
 /** Two visibilities in [0,1] in one float: base in the integer part (1/1000 steps), top in the fraction. */
 const packSun = (base: any, top: any) => floor(clamp(base, 0, 1).mul(1000)).add(clamp(top, 0, 1).mul(0.999));
-const instanceLighting = (d2: any, d3: any) => ({
+const instanceLighting = (d2: any, d3: any, d4: any) => ({
+  bounce: d4.xyz,
   S: d2.xyz,
   sky: d2.w,
   T: d3.xyz,
@@ -143,7 +144,7 @@ export class Forest implements System {
       const i2 = int(baseU).add(int(instanceIndex)).mul(INST_STRIDE);
       const d0 = inst.element(i2);
       const d1 = inst.element(i2.add(1));
-      const lit = instanceLighting(inst.element(i2.add(2)), inst.element(i2.add(3)));
+      const lit = instanceLighting(inst.element(i2.add(2)), inst.element(i2.add(3)), inst.element(i2.add(4)));
       const c = cos(d1.x), s = sin(d1.x);
       const rot = (v: any) => vec3(c.mul(v.x).add(s.mul(v.z)), v.y, s.negate().mul(v.x).add(c.mul(v.z)));
       return {
@@ -269,7 +270,8 @@ export class Forest implements System {
     const i2 = int(baseU).add(int(instanceIndex)).mul(INST_STRIDE);
     const d0 = inst.element(i2);
     const d1 = inst.element(i2.add(1));
-    const lit = instanceLighting(inst.element(i2.add(2)), inst.element(i2.add(3)));
+    const lit = instanceLighting(inst.element(i2.add(2)), inst.element(i2.add(3)), inst.element(i2.add(4)));
+    const vBounce = varying(vec3(0), 'impBounce');
     const vFrame = [0, 1, 2, 3].map((k) => varying(vec4(0), `impF${k}`)); // xy frame-local uv, zw atlas cell offset
     const vW = varying(vec4(1, 0, 0, 0), 'impW');
     const vRotCS = varying(vec2(1, 0), 'impRot');
@@ -323,6 +325,7 @@ export class Forest implements System {
       vApS.assign(lit.S);
       vApT.assign(lit.T);
       vSkyVis.assign(lit.sky);
+      vBounce.assign(lit.bounce);
       return world;
     })();
 
@@ -359,7 +362,7 @@ export class Forest implements System {
       const variation = mix(float(0.88), float(1.12), vMisc.y);
       const a = albedo.rgb.mul(variation);
       const wrap = max(dot(n, sunUniforms.dir).add(0.25).div(1.25), 0);
-      const irr = sunUniforms.color.mul(wrap).mul(vMisc.w).add(atmo.skyIrradiance(n).mul(0.85).mul(vSkyVis));
+      const irr = sunUniforms.color.mul(wrap).mul(vMisc.w).add(atmo.skyIrradiance(n).mul(0.85).mul(vSkyVis)).add(vBounce);
       return vec4(a.mul(irr).mul(1 / Math.PI).mul(vApT).add(vApS), 1);
     })();
     m.opacityNode = impAlpha.mul(fadeVisible(vMisc.x));
@@ -406,7 +409,7 @@ export class Forest implements System {
     });
     const rnd = (h: any) => float(h.bitAnd(uint(0xffffff))).div(16777216);
 
-    let light: { d2: any; d3: any } = null!;
+    let light: { d2: any; d3: any; d4: any } = null!;
     const emit = (list: any, x: any, y: any, z: any, scale: any, rotv: any, fade: any, seed: any, variant: any) => {
       const slot = atomicAdd(counters.element(list), uint(1)).toVar();
       If(slot.lessThan(uint(listCap.element(list))), () => {
@@ -415,6 +418,7 @@ export class Forest implements System {
         inst.element(i.add(1)).assign(vec4(rotv, fade, seed, variant));
         inst.element(i.add(2)).assign(light.d2);
         inst.element(i.add(3)).assign(light.d3);
+        inst.element(i.add(4)).assign(light.d4);
       });
     };
 
@@ -491,7 +495,8 @@ export class Forest implements System {
         const suv = clamp(vec2(ndc.x.mul(0.5).add(0.5), float(0.5).sub(ndc.y.mul(0.5))), vec2(0), vec2(1));
         const ap = this.atmosphere.aerialPerspective(C, suv, this.uCam);
         const sky = hk.skyVisAt ? hk.skyVisAt(vec2(x, z)) : float(1);
-        light = { d2: vec4(ap.S, sky).toVar(), d3: vec4(ap.T, packSun(sunBase, sunTop)).toVar() };
+        const gi = hk.bounceAt ? hk.bounceAt(vec2(x, z)) : vec3(0);
+        light = { d2: vec4(ap.S, sky).toVar(), d3: vec4(ap.T, packSun(sunBase, sunTop)).toVar(), d4: vec4(gi, 0).toVar() };
       }
       const L0 = vi, L1 = vi.add(NV);
       // band index as float math (select() on int nodes mis-typed here), then converted once
