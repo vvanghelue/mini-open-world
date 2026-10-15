@@ -128,9 +128,12 @@ export function registerBuiltinCommands(app: App) {
     getLogs(since ?? 0).filter((l) => !level || l.level === level),
   );
   registerCommand('eval', 'Evaluate JS in the app (window.app available): {code}', async ({ code, _ }) => {
-    const src = code ?? _?.join(' ');
+    const src: string = (code ?? _?.join(' ')).trim().replace(/;$/, '');
+    // REPL-like: without an explicit return, the last statement's value is returned
+    const cut = src.lastIndexOf(';');
+    const body = src.includes('return') ? src : cut >= 0 ? `${src.slice(0, cut + 1)} return ${src.slice(cut + 1)}` : `return ${src}`;
     // eslint-disable-next-line no-new-func
-    const fn = new Function('app', `return (async () => { ${src.includes('return') ? src : 'return ' + src} })()`);
+    const fn = new Function('app', `return (async () => { ${body} })()`);
     const r = await fn(app);
     try {
       return JSON.parse(JSON.stringify(r ?? null));
