@@ -21,6 +21,7 @@ import { generateTree, TREE_PRESETS, GeneratedTree, TwigRect } from './tree-gene
 import { makeFoliageMaterial, makeBarkMaterial, InstanceXform, TreeTextures, sunUniforms, windUniforms, fadeVisible } from './tree-materials';
 import { bakeImpostors, impostorShaderParts, ImpostorAtlas, IMP_N, IMP_COLS } from './impostors';
 import { registerCommand } from '../agent/bridge';
+import { skyVisAt } from '../terrain/terrain-material';
 
 export const forestSettings = settings.group('forest', 'Forêt', {
   enabled: { value: true, label: 'Arbres' },
@@ -236,6 +237,7 @@ export class Forest implements System {
     const vMisc = varying(vec4(0), 'impMisc'); // x fade, y seed, z distance, w shadow
     const vApS = varying(vec3(0), 'impApS');
     const vApT = varying(vec3(1), 'impApT');
+    const vSkyVis = varying(float(1), 'impSkyVis');
     const shadowAt = this.terrainShadows.visibilityAt;
     const atmo = this.atmosphere;
     const cellSize = vec2(1 / (N * IMP_COLS), 1 / (N * rows));
@@ -284,6 +286,7 @@ export class Forest implements System {
       const ap = atmo.aerialPerspective(C, vec2(ndc.x.mul(0.5).add(0.5), float(0.5).sub(ndc.y.mul(0.5))));
       vApS.assign(ap.S);
       vApT.assign(ap.T);
+      vSkyVis.assign(skyVisAt(C.xz));
       return world;
     })();
 
@@ -320,7 +323,7 @@ export class Forest implements System {
       const variation = mix(float(0.88), float(1.12), vMisc.y);
       const a = albedo.rgb.mul(variation);
       const wrap = max(dot(n, sunUniforms.dir).add(0.25).div(1.25), 0);
-      const irr = sunUniforms.color.mul(wrap).mul(vMisc.w).add(atmo.skyIrradiance(n).mul(0.85));
+      const irr = sunUniforms.color.mul(wrap).mul(vMisc.w).add(atmo.skyIrradiance(n).mul(0.85).mul(vSkyVis));
       return vec4(a.mul(irr).mul(1 / Math.PI).mul(vApT).add(vApS), 1);
     })();
     m.opacityNode = impAlpha.mul(fadeVisible(vMisc.x));

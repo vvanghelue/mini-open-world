@@ -14,6 +14,7 @@ import { TimeOfDay } from './sky/time-of-day';
 import { Atmosphere } from './sky/atmosphere';
 import { TerrainShadows } from './lighting/terrain-shadows';
 import { setupSunShadows } from './lighting/sun-shadows';
+import { SkyVisibility } from './lighting/sky-visibility';
 import { Forest } from './vegetation/forest';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
@@ -48,6 +49,7 @@ async function main() {
   const terrain = engine.add(new Terrain(progress));
   const atmosphere = engine.add(new Atmosphere(time));
   const terrainShadows = engine.add(new TerrainShadows(terrain, time));
+  const skyVisibility = engine.add(new SkyVisibility(terrain));
   const forest = engine.add(new Forest(terrain, atmosphere, terrainShadows));
   const grass = engine.add(new Grass(terrain));
   engine.add(new Post());
@@ -58,6 +60,7 @@ async function main() {
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
   setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows);
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
+  terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
 
   // Initial view: above Wengen, looking at the Jungfrau.
@@ -75,7 +78,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, forest, grass, player };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, forest, grass, player };
   (window as any).app = app;
   registerBuiltinCommands(app);
 

@@ -23,7 +23,10 @@ export const terrainMatSettings = settings.group('terrainMat', 'Terrain â€” matÃ
 const TILE = [5, 4, 7, 14, 9, 4, 7, 12]; // metres per texture repeat, per layer
 
 /** Late-bound hooks provided by other systems (set before the first render). */
-export const terrainHooks: { sky: ((dir: any) => any) | null } = { sky: null };
+export const terrainHooks: { sky: ((dir: any) => any) | null; skyVis: ((xz: any) => any) | null } = { sky: null, skyVis: null };
+
+/** Sky visibility at world xz if available (late-bound), else 1. */
+export const skyVisAt = (xz: any) => (terrainHooks.skyVis ? terrainHooks.skyVis(xz) : float(1));
 const ROUGH_BIAS = [0, 0, 0, 0, -0.15, 0, 0, 0];
 
 export interface TerrainMaterialInputs {
@@ -204,7 +207,9 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
 
     const nWorld = normalize(has.select(mix(nM, accN.mul(invW), nearW), nM)).toVar();
     const rough = has.select(accR.mul(invW), float(0.9)).toVar();
-    const ao = has.select(mix(float(1), accAO.mul(invW), nearW), float(1)).toVar();
+    // canopy blocks most of the sky above the forest floor (trees render on top of it)
+    const canopyAO = float(1).sub(forest.mul(0.7));
+    const ao = has.select(mix(float(1), accAO.mul(invW), nearW), float(1)).mul(canopyAO).toVar();
 
     // water: dark body colour, glossy, two scrolling ripple layers; sky reflection added as emissive (Fresnel)
     const waterW = smoothstep(0.2, 0.8, water).toVar();
@@ -241,6 +246,6 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
     return out;
   })();
   mat.roughnessNode = pRough;
-  mat.aoNode = pAO;
+  mat.aoNode = Fn(() => pAO.mul(skyVisAt(positionWorld.xz)))();
   mat.metalnessNode = float(0);
 }

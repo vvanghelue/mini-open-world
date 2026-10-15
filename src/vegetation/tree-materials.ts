@@ -8,6 +8,7 @@
 // Both members use the same screen-space noise, so their coverage is complementary (no holes, no double
 // coverage); TAA jitter turns the dither into a smooth blend.
 import * as THREE from 'three/webgpu';
+import { skyVisAt } from '../terrain/terrain-material';
 import {
   Fn, texture, uniform, vec3, vec4, float, attribute, positionLocal, normalLocal, sin, time, mix, pow, clamp, dot,
   normalize, positionWorld, cameraPosition, uv, normalMap, transformNormalToView, interleavedGradientNoise,
@@ -75,7 +76,7 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   m.alphaTest = 0.45;
   // the shadow pass ignores opacityNode: cut the cards out explicitly
   (m as any).maskShadowNode = tex.a.greaterThan(0.45);
-  m.aoNode = mix(float(0.5), float(1), ao);
+  m.aoNode = Fn(() => mix(float(0.5), float(1), ao).mul(skyVisAt(positionWorld.xz)))();
 
   // back-lit translucency (light through needles when looking towards the sun)
   if (xf) {

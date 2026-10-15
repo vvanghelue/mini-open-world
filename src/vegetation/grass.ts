@@ -13,6 +13,7 @@ import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
 import type { Terrain } from '../terrain/terrain';
 import { windUniforms, sunUniforms } from './tree-materials';
+import { skyVisAt } from '../terrain/terrain-material';
 
 export const grassSettings = settings.group('grass', 'Herbe', {
   enabled: { value: true, label: 'Herbe 3D' },
@@ -131,6 +132,7 @@ export class Grass implements System {
     })();
     // soft lighting: mostly up-facing normals (grass reads like a lit carpet), slight blade normal
     m.normalNode = transformNormalToView(normalize(vec3(0, 1, 0)));
+    m.aoNode = Fn(() => skyVisAt(positionWorld.xz))();
     m.colorNode = Fn(() => {
       const root = mix(float(0.45), float(1.0), pow(vH, 0.8));
       return vec4(vColor.mul(root), 1);
