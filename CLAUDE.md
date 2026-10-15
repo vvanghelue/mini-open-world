@@ -75,6 +75,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   (mean/p50/p95/p99, % frames > 10 ms), saves `bench-results/`.
 - `node tools/ab.mjs --path=walk [--range=0.7,0.8] --seconds=4 --rounds=2 '' 'a.b=1' 'c.d=false'` → interleaved A/B
   (settings reset to defaults before each variant; '' = baseline).
+- `node tools/acceptance.mjs [--quick]` → every requirement of the original request as a measured pass/fail check
+  (~10 min, opens one visible Chrome for the 60 Hz check), writes `docs/ACCEPTANCE.md` (French). Run it after big changes.
 - `node tools/profile.mjs [--path=valley]` CPU self time; `tools/alloc-profile.mjs` JS allocations;
   `tools/dev/*` low-level probes (minimal WebGPU page, spikes, GC trace).
 
