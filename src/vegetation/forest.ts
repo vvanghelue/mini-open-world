@@ -35,6 +35,7 @@ export const forestSettings = settings.group('forest', 'Forêt', {
   wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
   foliagePrepass: { value: true, label: 'Pré-passe profondeur feuillage' },
   impostorPrepass: { value: true, label: 'Pré-passe profondeur imposteurs' },
+  skipEmptyDraws: { value: true, label: 'Ignorer les listes vides (CPU)', hidden: true },
   debugDraw: { value: 'all', options: { Tout: 'all', 'Maillages seuls': 'meshes', 'Imposteurs seuls': 'impostors', 'Aucun (compute seul)': 'none' }, label: 'Debug dessin' },
   debugFlatImpostors: { value: false, label: 'Debug imposteurs unis', hidden: true },
   debugMeshShading: { value: 'full', options: { full: 'full', noShadow: 'noShadow', noFog: 'noFog', basic: 'basic' }, label: 'Debug shading maillages', hidden: true },
@@ -568,6 +569,13 @@ export class Forest implements System {
     })().compute(NLIST).setName('forestReset');
   }
   private reset!: THREE.ComputeNode;
+  // CPU cost: three spends ~40 us of JS per draw and per pass, and many indirect draws are empty (variant absent
+  // here, impostor band out of view). Instance counts are read back asynchronously; a list empty in the last two
+  // readbacks is not submitted (its trees enter through dithered cross-fades, so a 1-2 frame delay is invisible).
+  private readback = new THREE.ReadbackBuffer(1024);
+  private readPending = false;
+  private emptyStreak = new Uint8Array(64);
+  forestCulledDraws = 0;
   private lastMeshShading = 'full';
 
   update(_ctx: FrameContext) {
@@ -600,6 +608,7 @@ export class Forest implements System {
         on = pre;
         d.mesh.castShadow = pre && u.castsPre;
       }
+      if (forestSettings.skipEmptyDraws && this.emptyStreak[d.list] >= 2) on = false;
       d.mesh.visible = on && (s.debugDraw === 'all' || (s.debugDraw === 'impostors' && isImp) || (s.debugDraw === 'meshes' && !isImp));
     }
     const cam = this.engine.camera;
@@ -641,6 +650,19 @@ export class Forest implements System {
     (this.scatter as any).count = this.gridN * this.gridN;
     r.compute(this.scatter);
     r.compute(this.finalize);
+    if (!this.readPending && forestSettings.skipEmptyDraws) {
+      this.readPending = true;
+      r.getArrayBufferAsync(this.drawArgs, this.readback as any)
+        .then((rb: any) => {
+          const a = new Uint32Array(rb.buffer);
+          const count = new Uint32Array(64);
+          for (const d of this.draws) count[d.list] = Math.max(count[d.list], a[d.mesh.userData.drawEntry * 5 + 1]);
+          for (let l = 0; l < 64; l++) this.emptyStreak[l] = count[l] === 0 ? Math.min(255, this.emptyStreak[l] + 1) : 0;
+          this.readback.release();
+        })
+        .catch(() => {})
+        .finally(() => (this.readPending = false));
+    }
   }
 }
 
