@@ -21,6 +21,7 @@ export interface DynResState {
 }
 
 const WINDOW = 40;
+const TAIL = 120;
 /** Output (canvas) size steps of the last-resort stage. */
 const OUTPUT_STEPS = [1, 0.8, 0.65];
 const STEP = 0.025;
@@ -37,6 +38,9 @@ export class DynamicResolution {
   private probeStrikes = 0; // recent ineffective resolution drops
   private lastStrike = -1e9;
   private samples: number[] = [];
+  // longer history for the tail: the p95 over ~1 s, which the frame budget is judged on (the p90 of the 40-frame
+  // window can stay under target while GPU / compositor hiccups push the p95 over the budget)
+  private tail: number[] = [];
   private sinceChange = 0;
   private cleanTime = 0;
   private lastDrop = -1e9;
@@ -48,7 +52,7 @@ export class DynamicResolution {
 
   /** Resets to the user's maximum scale (settings changed, dynamic resolution toggled). */
   reset() {
-    this.samples.length = 0;
+    this.samples.length = this.tail.length = 0;
     this.cleanTime = 0;
     this.qTarget = 1;
     if (this.outputScale !== 1) this.applyOutput((this.outputScale = 1));
@@ -77,12 +81,12 @@ export class DynamicResolution {
     } else if (this.qTarget > 0) {
       this.qTarget = Math.max(0, this.qTarget - (this.urgent ? 0.5 : 0.25));
       this.sinceChange = 0;
-      this.samples.length = 0;
+      this.samples.length = this.tail.length = 0;
     } else if (this.state.quality < 0.02 && this.outputScale > OUTPUT_STEPS[OUTPUT_STEPS.length - 1] && this.clock - this.outputSince > (this.urgent ? 1.5 : 4)) {
       this.applyOutput((this.outputScale = OUTPUT_STEPS[OUTPUT_STEPS.indexOf(this.outputScale) + 1]));
       this.outputSince = this.clock;
       this.sinceChange = 0;
-      this.samples.length = 0;
+      this.samples.length = this.tail.length = 0;
     }
     this.lastDrop = this.clock;
     this.cleanTime = 0;
@@ -97,11 +101,11 @@ export class DynamicResolution {
       this.applyOutput((this.outputScale = OUTPUT_STEPS[OUTPUT_STEPS.indexOf(this.outputScale) - 1]));
       this.outputSince = this.clock;
       this.sinceChange = 0;
-      this.samples.length = 0;
+      this.samples.length = this.tail.length = 0;
     } else if (this.qTarget < 1) {
       this.qTarget = Math.min(1, this.qTarget + 0.25);
       this.sinceChange = 0;
-      this.samples.length = 0;
+      this.samples.length = this.tail.length = 0;
     } else this.set(this.state.scale + STEP);
     this.cleanTime = 0;
   }
@@ -114,7 +118,7 @@ export class DynamicResolution {
     this.state.scale = q;
     this.apply(q);
     this.sinceChange = 0;
-    this.samples.length = 0;
+    this.samples.length = this.tail.length = 0;
   }
 
   /** Call once per frame with the measured frame interval (ms). */
@@ -134,6 +138,8 @@ export class DynamicResolution {
     this.sinceChange += intervalMs / 1000;
     if (this.clock < 1.5) return; // loading / shader warm-up hitches are not a load signal
     this.samples.push(intervalMs);
+    this.tail.push(intervalMs);
+    if (this.tail.length > TAIL) this.tail.shift();
     if (this.samples.length > WINDOW) this.samples.shift();
     if (this.samples.length < WINDOW || this.sinceChange < (this.urgent ? 0.4 : 0.8)) return;
 
@@ -203,12 +209,18 @@ export class DynamicResolution {
     // aim below the budget: p90 at 85 % of it keeps the tail (p95: GPU / compositor hiccups outside our JS) under it
     const target = (1000 / renderSettings.targetFps) * 0.85;
     this.urgent = p90 > target * 1.3;
-    if (p90 > target * 1.02) {
+    const budget = 1000 / renderSettings.targetFps;
+    let p95t = 0;
+    if (this.tail.length >= TAIL) {
+      const st = [...this.tail].sort((a, b) => a - b);
+      p95t = st[Math.floor(TAIL * 0.95)];
+    }
+    if (p90 > target * 1.02 || p95t > budget * 0.95) {
       // proportional step (pixel cost ~ scale^2), at least one step
       const k = Math.sqrt(target / p90);
       // while the detail level is still gliding down, give it time before another step
       if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(s * (0.15 + 0.85 * k), tm);
-    } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
+    } else if (p90 < target * 0.8 && p95t < budget * 0.8 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
       if (this.cleanTime > (this.clock - this.lastDrop < 10 ? 2.5 : 1)) this.improve(p90 / target);
