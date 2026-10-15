@@ -32,6 +32,7 @@ export const forestSettings = settings.group('forest', 'Forêt', {
   treeline: { value: 2050, min: 1500, max: 2600, step: 10, label: 'Limite des arbres (m)' },
   wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
   foliagePrepass: { value: true, label: 'Pré-passe profondeur feuillage' },
+  impostorPrepass: { value: true, label: 'Pré-passe profondeur imposteurs' },
   debugDraw: { value: 'all', options: { Tout: 'all', 'Maillages seuls': 'meshes', 'Imposteurs seuls': 'impostors', 'Aucun (compute seul)': 'none' }, label: 'Debug dessin' },
   debugFlatImpostors: { value: false, label: 'Debug imposteurs unis', hidden: true },
   debugMeshShading: { value: 'full', options: { full: 'full', noShadow: 'noShadow', noFog: 'noFog', basic: 'basic' }, label: 'Debug shading maillages', hidden: true },
@@ -42,7 +43,6 @@ export const forestSettings = settings.group('forest', 'Forêt', {
 
 const GRID = 4.5; // candidate spacing (m)
 // Masked depth pre-pass for impostors: measured slower on M4 (the alpha-tested pass itself dominates), kept off.
-const USE_IMPOSTOR_PREPASS = false;
 const NV = TREE_PRESETS.length;
 const CAP_LOD0 = 3072, CAP_LOD1 = 8192;
 // impostors are split into distance bands drawn near -> far (coarse front-to-back order: depth testing then
@@ -206,13 +206,13 @@ export class Forest implements System {
     // masked depth pre-pass (cheap alpha test only), then the shaded pass with an EQUAL depth test and no
     // discard: only the visible impostor fragment of each pixel gets lit (alpha-test overdraw defeats the GPU's
     // hidden surface removal otherwise)
-    if (USE_IMPOSTOR_PREPASS) for (let b = 0; b < NB; b++) addDraw(impGeo, this.impostorDepthMaterial, 2 * NV + b, 'depth');
+    for (let b = 0; b < NB; b++) addDraw(impGeo, this.impostorDepthMaterial, 2 * NV + b, 'depth');
     for (let b = 0; b < NB; b++) addDraw(impGeo, impMat, 2 * NV + b, 'color');
     // draw order: near meshes, impostor depth bands (near -> far), impostor colour bands
     for (const d of this.draws) {
       const band = d.list - 2 * NV;
       const depth = d.mesh.userData.pass === 'depth';
-      d.mesh.renderOrder = d.list < 2 * NV ? (depth ? -1 : d.list < NV ? 1 : 2) : depth ? 3 + band : 10 + band;
+      d.mesh.renderOrder = d.list < 2 * NV ? (depth ? -2 : d.list < NV ? 1 : 2) : depth ? -1 : 10 + band;
       d.mesh.userData.casts = d.mesh.castShadow;
     }
     // a mesh depth pass casts the shadow in place of its colour pass when the pre-pass is on
@@ -274,6 +274,7 @@ export class Forest implements System {
     const vBounce = varying(vec3(0), 'impBounce');
     const vFrame = [0, 1, 2, 3].map((k) => varying(vec4(0), `impF${k}`)); // xy frame-local uv, zw atlas cell offset
     const vW = varying(vec4(1, 0, 0, 0), 'impW');
+    const vFrameN = varying(vec4(0), 'impFN'); // dominant frame (coverage of the depth pre-pass)
     const vRotCS = varying(vec2(1, 0), 'impRot');
     const vMisc = varying(vec4(0), 'impMisc'); // x fade, y seed, z distance, w shadow
     const vApS = varying(vec3(0), 'impApS');
@@ -319,6 +320,13 @@ export class Forest implements System {
         vFrame[k].assign(vec4(fu, fv, vx.mul(N).add(cell.x), vy.mul(N).add(cell.y)));
       }
       vW.assign(vec4(float(1).sub(f.x).mul(float(1).sub(f.y)), f.x.mul(float(1).sub(f.y)), float(1).sub(f.x).mul(f.y), f.x.mul(f.y)));
+      {
+        // nearest frame: the cell the view direction falls in (rounded g)
+        const cn = clamp(floor(g.add(0.5)), vec2(0), vec2(N - 1));
+        const dk = parts.decode(cn.x.add(0.5).div(N), cn.y.add(0.5).div(N));
+        const b = parts.basis(dk);
+        vFrameN.assign(vec4(dot(lp, b.right).div(R0.mul(2)).add(0.5), float(0.5).sub(dot(lp, b.up).div(R0.mul(2))), vx.mul(N).add(cn.x), vy.mul(N).add(cn.y)));
+      }
       vRotCS.assign(vec2(c, s));
       // lighting terms come from the scatter compute (per tree); sun visibility interpolated over the quad height
       vMisc.assign(vec4(d1.y, d1.z, length(cameraPosition.sub(C)), mix(lit.sunBase, lit.sunTop, positionLocal.y.mul(0.5).add(0.5))));
@@ -331,7 +339,7 @@ export class Forest implements System {
 
     const atlasUV = (fr: any) => clamp(fr.xy, 0.002, 0.998).add(fr.zw).mul(cellSize);
     const impAlpha = property('float', 'impCoverage');
-    m.colorNode = Fn(() => {
+    const colorFn = (allowDiscard: boolean) => Fn(() => {
       const albedo = vec4(0).toVar();
       const nrm = vec3(0).toVar();
       // gradients from frame 0 (continuous), valid for all frames (same scale)
@@ -352,7 +360,7 @@ export class Forest implements System {
         const uvk = atlasUV(fr);
         albedo.assign(texture(atlas.albedo, uvk).grad(gx, gy));
         // most fragments of a quad are transparent: reject before the normal fetch
-        If(albedo.a.lessThan(this.uEarlyDiscard), () => Discard());
+        if (allowDiscard) If(albedo.a.lessThan(this.uEarlyDiscard), () => Discard());
         nrm.assign(texture(atlas.normal, uvk).grad(gx, gy).xyz);
       });
       impAlpha.assign(albedo.a);
@@ -365,18 +373,30 @@ export class Forest implements System {
       const irr = sunUniforms.color.mul(wrap).mul(vMisc.w).add(atmo.skyIrradiance(n).mul(0.85).mul(vSkyVis)).add(vBounce);
       return vec4(a.mul(irr).mul(1 / Math.PI).mul(vApT).add(vApS), 1);
     })();
+    m.colorNode = colorFn(true);
     m.opacityNode = impAlpha.mul(fadeVisible(vMisc.x));
     m.alphaTest = 0.5;
 
-    // depth pre-pass material (kept for experiments, disabled by USE_IMPOSTOR_PREPASS)
+    // depth pre-pass (forest.impostorPrepass): alpha-tested depth from the dominant frame, drawn before the terrain,
+    // then shading with EQUAL depth and no discard -> the GPU's hidden-surface removal works for the impostors and
+    // for the terrain hidden behind the forest
     const dm = new THREE.MeshBasicNodeMaterial();
     dm.fog = false;
     dm.colorWrite = false;
+    dm.userData.invariantPosition = true;
     dm.positionNode = m.positionNode;
     dm.colorNode = vec4(0, 0, 0, 1);
-    dm.opacityNode = texture(atlas.albedo, atlasUV(vFrame[0])).a.mul(fadeVisible(vMisc.x));
+    dm.opacityNode = texture(atlas.albedo, atlasUV(vFrameN)).a.mul(fadeVisible(vMisc.x));
     dm.alphaTest = 0.5;
     this.impostorDepthMaterial = dm;
+    const meq = new THREE.MeshBasicNodeMaterial();
+    meq.fog = false;
+    meq.userData.invariantPosition = true;
+    meq.positionNode = m.positionNode;
+    meq.colorNode = colorFn(false);
+    meq.depthFunc = THREE.NotEqualDepth; // = EQUAL under reversed depth (three r186 mapping, see tree-materials.ts)
+    meq.depthWrite = false;
+    this.impostorEqualMaterial = meq;
 
     // debug: same geometry, trivial fragment (measures vertex + raster cost)
     const flat = new THREE.MeshBasicNodeMaterial();
@@ -389,6 +409,7 @@ export class Forest implements System {
   }
   impostorFlatMaterial!: THREE.Material;
   impostorDepthMaterial!: THREE.Material;
+  impostorEqualMaterial!: THREE.Material;
   impostorMaterial!: THREE.Material;
 
   private buildComputes() {
@@ -563,8 +584,9 @@ export class Forest implements System {
     for (const d of this.draws) {
       const isImp = d.list >= 2 * NV;
       const u = d.mesh.userData;
-      if (isImp && u.pass === 'color') d.mesh.material = s.debugFlatImpostors ? this.impostorFlatMaterial : this.impostorMaterial;
       let on = true;
+      if (isImp && u.pass === 'color') d.mesh.material = s.debugFlatImpostors ? this.impostorFlatMaterial : s.impostorPrepass ? this.impostorEqualMaterial : this.impostorMaterial;
+      if (isImp && u.pass === 'depth') on = s.impostorPrepass && !s.debugFlatImpostors;
       if (u.alt) {
         // foliage colour pass: EQUAL-depth variant after the pre-pass; the depth pass then casts the shadow
         d.mesh.material = pre ? u.alt.prepassed : u.alt.normal;
