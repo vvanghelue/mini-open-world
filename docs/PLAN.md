@@ -72,5 +72,7 @@ Perf (MacBook Air M4, uncapped): stress 2560×1440 ≈ 4–8 ms mean per path (p
 throttled; lake path ~12 ms p95 near dense forest); real window 1470×830 ≈ 230–350 fps.
 Also: rocks/boulders (scatter + walker collisions), walker collides with buildings.
 Also: OSM roads and hiking trails, procedural audio, impostor depth pre-pass.
+Adaptive governor: dynamic internal resolution (0.40–0.60) then detail level, targeting 100 fps uncapped and
+no missed vsync when capped; visually near-identical at minimum detail.
 Ideas next: buildings LOD/roof detail, cloud temporal reprojection, bridges as 3D decks, rivers flow.
 
