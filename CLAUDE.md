@@ -59,6 +59,7 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   (`bounce-gi.ts`, 2.5D irradiance grid re-baked progressively when the sun moves; `gi-probe` command).
 - `vegetation/` procedural conifers (`tree-generator.ts`), materials, octahedral impostors, GPU-scattered forest
   (`forest.ts`: compute scatter → indirect draws, LOD0/LOD1/4 impostor bands, dithered cross-fades), grass tufts.
+  Rocks (`rocks.ts`: land-cover scatter, power-law sizes, sink fade; `RockQuery` CPU replica for collisions).
 - `world/` airfield (runway strip with procedural markings), buildings (OSM, 2 km merged supertiles, procedural
   facades, night windows, sink into the terrain far away), `colliders.ts` (static colliders for the walker).
 - `player/` free camera, walker (trunks via CPU replica of the scatter + world colliders), aircraft (flight model, gear).

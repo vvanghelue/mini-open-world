@@ -70,5 +70,6 @@ per-tree lighting, depth pre-pass), grass, volumetric clouds, water with heightf
 SSR), TAAU-lite + bloom + lens flare, aircraft + walker + free camera, Interlaken runway, ~24k buildings.
 Perf (MacBook Air M4, uncapped): stress 2560×1440 ≈ 4–8 ms mean per path (p95 ≤ 10 ms when not thermally
 throttled; lake path ~12 ms p95 near dense forest); real window 1470×830 ≈ 230–350 fps.
-Ideas next: rocks/boulders, audio, buildings LOD/roof detail, road network, cloud temporal reprojection.
+Also: rocks/boulders (scatter + walker collisions), walker collides with buildings.
+Ideas next: audio, buildings LOD/roof detail, road network, cloud temporal reprojection.
 
