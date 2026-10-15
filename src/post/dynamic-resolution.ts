@@ -215,12 +215,14 @@ export class DynamicResolution {
       const st = [...this.tail].sort((a, b) => a - b);
       p95t = st[Math.floor(TAIL * 0.95)];
     }
-    if (p90 > target * 1.02 || p95t > budget * 0.95) {
+    // the tail counts only when the bulk is loaded too: isolated spikes (browser, GPU hiccups) are not fixed by
+    // lowering quality, and chasing them ratchets everything down to the floor at 200 fps
+    if (p90 > target * 1.02 || (p95t > budget * 0.95 && p90 > target * 0.85)) {
       // proportional step (pixel cost ~ scale^2), at least one step
       const k = Math.sqrt(target / p90);
       // while the detail level is still gliding down, give it time before another step
       if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(s * (0.15 + 0.85 * k), tm);
-    } else if (p90 < target * 0.8 && p95t < budget * 0.8 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
+    } else if (p90 < target * 0.8 && p95t < budget * 0.95 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
       if (this.cleanTime > (this.clock - this.lastDrop < 10 ? 2.5 : 1)) this.improve(p90 / target);

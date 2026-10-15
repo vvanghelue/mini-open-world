@@ -181,6 +181,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // real-window performance (the user's MacBook Air browser window)
   const perf = await run('bench', { seconds: 8 });
   const rows = Object.entries(perf).map(([k, v]) => `${k} ${(1000 / v.frameMs.mean).toFixed(0)} fps (p95 ${v.frameMs.p95} ms)`);
+  console.log('      diag: ' + Object.entries(perf).map(([k, v]) => `${k} res ${v.scale.mean} détail ${v.quality.mean} out ${v.outputReduced}% >10ms ${v.frameMs.over10}% max ${v.frameMs.max} segs ${v.timeline.map((t) => t.p95).join(',')}`).join(' | '));
   const worstP95 = Math.max(...Object.values(perf).map((v) => v.frameMs.p95));
   const minFps = Math.min(...Object.values(perf).map((v) => 1000 / v.frameMs.mean));
   check('100+ fps', '100+ fps sur le MacBook Air (fenêtre 1470×830)', minFps >= 100 && worstP95 <= 10, rows.join(', '));
