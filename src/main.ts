@@ -19,6 +19,7 @@ import { setupSunShadows } from './lighting/sun-shadows';
 import { SkyVisibility } from './lighting/sky-visibility';
 import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
+import { Rocks } from './vegetation/rocks';
 import { makeTerrainReflection } from './lighting/water-reflection';
 import { BounceGI } from './lighting/bounce-gi';
 import { Airfield } from './world/airfield';
@@ -62,6 +63,7 @@ async function main() {
   const bounceGI = engine.add(new BounceGI(terrain, atmosphere, time, terrainShadows, skyVisibility));
   const forest = engine.add(new Forest(terrain, atmosphere, terrainShadows));
   const grass = engine.add(new Grass(terrain));
+  const rocks = engine.add(new Rocks(terrain));
   const clouds = engine.add(new Clouds(atmosphere));
   engine.add(new Post(clouds));
   const player = engine.add(new Player(terrain, freeCam, input));
@@ -95,7 +97,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, buildings, forest, grass, player, clouds };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, buildings, forest, grass, rocks, player, clouds };
   (window as any).app = app;
   registerBuiltinCommands(app);
 

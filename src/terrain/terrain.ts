@@ -223,6 +223,32 @@ export class Terrain implements System {
     return far + (core - far) * ws;
   }
 
+  /** CPU land cover at (x, z) mirroring the GPU sampling (bilinear, core/far blend):
+   *  out = [forest, grass, rock, snow, water, urban, gravel]. */
+  coverAt(x: number, z: number, out: number[] = new Array(7)): number[] {
+    const m = this.data.meta;
+    const sample = (data: Uint8Array, res: number, size: number, k: number) => {
+      const fx = Math.min(Math.max((x / size + 0.5) * res - 0.5, 0), res - 1);
+      const fz = Math.min(Math.max((z / size + 0.5) * res - 0.5, 0), res - 1);
+      const x0 = Math.floor(fx), z0 = Math.floor(fz);
+      const x1 = Math.min(x0 + 1, res - 1), z1 = Math.min(z0 + 1, res - 1);
+      const ax = fx - x0, az = fz - z0;
+      const layer = k < 4 ? 0 : res * res * 4, ch = k < 4 ? k : k - 4;
+      const v = (xx: number, zz: number) => data[layer + (zz * res + xx) * 4 + ch] / 255;
+      return (v(x0, z0) * (1 - ax) + v(x1, z0) * ax) * (1 - az) + (v(x0, z1) * (1 - ax) + v(x1, z1) * ax) * az;
+    };
+    const edge = m.core.size / 2 - Math.max(Math.abs(x), Math.abs(z));
+    const w = Math.min(1, Math.max(0, edge / CORE_BLEND));
+    const ws = w * w * (3 - 2 * w);
+    const farData = this.textures.farLandcover.image.data as Uint8Array;
+    const coreData = this.textures.landcover.image.data as Uint8Array;
+    for (let k = 0; k < 7; k++) {
+      const f = sample(farData, 2048, m.far.size, k);
+      out[k] = ws > 0 ? f + (sample(coreData, 4096, m.core.size, k) - f) * ws : f;
+    }
+    return out;
+  }
+
   update(_ctx: FrameContext) {
     if (terrainSettings.freezeLod) return;
     const cam = this.engine.camera;
