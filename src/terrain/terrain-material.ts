@@ -6,7 +6,7 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn, texture, uniform, vec2, vec3, vec4, float, If, clamp, mix, smoothstep, max, min, length, normalize, abs, pow,
-  dFdx, dFdy, positionWorld, cameraPosition, transformNormalToView, sin, time, property, int,
+  dFdx, dFdy, positionWorld, cameraPosition, transformNormalToView, sin, time, property, int, reflect, dot,
 } from 'three/tsl';
 import type { TerrainTextures } from './terrain-textures';
 import { settings } from '../core/settings';
@@ -21,6 +21,9 @@ export const terrainMatSettings = settings.group('terrainMat', 'Terrain â€” matÃ
 });
 
 const TILE = [5, 4, 7, 14, 9, 4, 7, 12]; // metres per texture repeat, per layer
+
+/** Late-bound hooks provided by other systems (set before the first render). */
+export const terrainHooks: { sky: ((dir: any) => any) | null } = { sky: null };
 const ROUGH_BIAS = [0, 0, 0, 0, -0.15, 0, 0, 0];
 
 export interface TerrainMaterialInputs {
@@ -55,6 +58,7 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
   const pNormal = property('vec3', 'terrainNormalW');
   const pRough = property('float', 'terrainRough');
   const pAO = property('float', 'terrainAO');
+  const pWater = property('float', 'terrainWater');
   mat.colorNode = Fn(() => {
     const p = positionWorld;
     const xz = p.xz;
@@ -202,15 +206,19 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
     const rough = has.select(accR.mul(invW), float(0.9)).toVar();
     const ao = has.select(mix(float(1), accAO.mul(invW), nearW), float(1)).toVar();
 
-    // water: dark albedo, glossy, small animated ripples
-    If(water.greaterThan(0.01), () => {
-      const wt = smoothstep(0.2, 0.8, water);
-      const rip = vec2(sin(p.x.mul(0.9).add(time.mul(1.3)).add(n2.r.mul(6))), sin(p.z.mul(1.1).sub(time.mul(1.1)).add(n2.g.mul(6)))).mul(0.03);
-      albedo.assign(mix(albedo, macro.mul(0.6), wt));
-      nWorld.assign(normalize(mix(nWorld, normalize(vec3(rip.x, 1, rip.y)), wt)));
-      rough.assign(mix(rough, float(0.06), wt));
-      ao.assign(mix(ao, float(1), wt));
+    // water: dark body colour, glossy, two scrolling ripple layers; sky reflection added as emissive (Fresnel)
+    const waterW = smoothstep(0.2, 0.8, water).toVar();
+    If(waterW.greaterThan(0.001), () => {
+      const r1 = texture(tx.noise, p.xz.div(23).add(vec2(time.mul(0.011), time.mul(0.007)))).rg;
+      const r2 = texture(tx.noise, p.xz.div(7.1).sub(vec2(time.mul(0.019), time.mul(-0.013)))).ba;
+      const fadeRip = float(1).sub(smoothstep(200, 3000, dist));
+      const rip = r1.add(r2).sub(1).mul(0.09).mul(fadeRip);
+      albedo.assign(mix(albedo, macro.mul(0.35), waterW));
+      nWorld.assign(normalize(mix(nWorld, normalize(vec3(rip.x, 1, rip.y)), waterW)));
+      rough.assign(mix(rough, float(0.05), waterW));
+      ao.assign(mix(ao, float(1), waterW));
     });
+    pWater.assign(waterW);
 
     pNormal.assign(nWorld);
     pRough.assign(rough);
@@ -218,6 +226,20 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
     return vec4(albedo, 1);
   })();
   mat.normalNode = transformNormalToView(pNormal);
+  // sky reflection on water (late-bound: the atmosphere is initialised after the terrain)
+  (mat as any).emissiveNode = Fn(() => {
+    const out = vec3(0).toVar();
+    If(pWater.greaterThan(0.001), () => {
+      if (!terrainHooks.sky) return;
+      const v = normalize(positionWorld.sub(cameraPosition));
+      const r = reflect(v, pNormal);
+      const rr = vec3(r.x, max(r.y, 0.01), r.z).normalize();
+      const cosT = clamp(dot(v.negate(), pNormal), 0, 1);
+      const F = float(0.02).add(float(0.98).mul(pow(float(1).sub(cosT), 5)));
+      out.assign(terrainHooks.sky(rr).mul(F).mul(pWater));
+    });
+    return out;
+  })();
   mat.roughnessNode = pRough;
   mat.aoNode = pAO;
   mat.metalnessNode = float(0);

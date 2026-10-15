@@ -2,6 +2,7 @@ import { Engine } from './core/engine';
 import { Input } from './core/input';
 import { settings } from './core/settings';
 import { Terrain } from './terrain/terrain';
+import { terrainHooks } from './terrain/terrain-material';
 import { Post } from './post/post';
 import { FreeCamera } from './player/free-camera';
 import { Player } from './player/player';
@@ -56,6 +57,7 @@ async function main() {
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
   setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows);
+  terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
 
   // Initial view: above Wengen, looking at the Jungfrau.

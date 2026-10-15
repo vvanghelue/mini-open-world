@@ -1,10 +1,12 @@
 // Post-processing pipeline: scene pass at reduced internal resolution (MRT: color + velocity)
 // -> TAAU (temporal anti-aliasing + upscale to output resolution) -> sharpen -> tone mapping (AgX).
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, velocity, uniform } from 'three/tsl';
+import { pass, mrt, output, velocity, uniform, float, vec3 } from 'three/tsl';
 import { taau } from 'three/addons/tsl/display/TAAUNode.js';
 import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
 import { taauLite } from './taau-lite';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { lensflare } from 'three/addons/tsl/display/LensflareNode.js';
 import type { Engine, System } from '../core/engine';
 import { renderSettings } from '../core/engine';
 import { settings } from '../core/settings';
@@ -14,6 +16,9 @@ export const postSettings = settings.group('post', 'Post-traitement', {
   sharpen: { value: 0.25, min: 0, max: 1.5, step: 0.05, label: 'Netteté' },
   exposure: { value: 1, min: 0.05, max: 8, step: 0.01, label: 'Exposition' },
   toneMapping: { value: 'aces', options: { AgX: 'agx', ACES: 'aces', Neutral: 'neutral' }, label: 'Tone mapping' },
+  bloom: { value: 0.06, min: 0, max: 0.5, step: 0.005, label: 'Bloom' },
+  bloomThreshold: { value: 1.6, min: 0.2, max: 10, step: 0.1, label: 'Seuil bloom' },
+  lensflare: { value: 0.3, min: 0, max: 3, step: 0.05, label: 'Lens flare' },
 });
 
 const TONE: Record<string, THREE.ToneMapping> = {
@@ -51,7 +56,15 @@ export class Post implements System {
     this.sharpenNode = sharpen(this.taauNode.getTextureNode(), postSettings.sharpen);
     this.liteNode = taauLite(color, vel, engine.camera);
     this.uSharpen.value = postSettings.sharpen;
-    this.liteOut = this.liteNode.sharpened(this.uSharpen);
+    // bloom + lens flare computed at internal resolution from the scene colour, added in the final pass
+    const bloomNode: any = bloom(color, postSettings.bloom, 0.5, postSettings.bloomThreshold);
+    const uFlare = uniform(postSettings.lensflare);
+    const flareNode: any = lensflare(bloomNode, { threshold: uniform(0.35), ghostAttenuationFactor: uniform(28), ghostSpacing: uniform(0.22), ghostTint: vec3(0.55, 0.75, 1.0) });
+    this.liteOut = this.liteNode.sharpened(this.uSharpen).add(bloomNode).add(flareNode.mul(uFlare));
+    settings.on('post.bloom', (v) => (bloomNode.strength.value = v));
+    settings.on('post.bloomThreshold', (v) => (bloomNode.threshold.value = v));
+    settings.on('post.lensflare', (v) => (uFlare.value = v as number));
+    void float;
 
     engine.pipeline = pipeline;
     this.rebuild();

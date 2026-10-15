@@ -8,7 +8,7 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn, uniform, vec2, vec4, float, uvec2, instanceIndex, texture, textureStore, Loop, If, Break, max, min, clamp, smoothstep,
-  mix, select, abs, positionWorld, cameraPosition, length,
+  mix, select, abs, positionWorld, cameraPosition, length, floor, ivec2,
 } from 'three/tsl';
 import type { Engine, System, FrameContext } from '../core/engine';
 import type { Terrain } from '../terrain/terrain';
@@ -70,7 +70,8 @@ export class TerrainShadows implements System {
         const t = new THREE.StorageTexture(res, res);
         t.type = THREE.FloatType;
         t.format = THREE.RGFormat;
-        t.minFilter = t.magFilter = THREE.LinearFilter;
+        // nearest => three binds no sampler (textureLoad); we filter manually. Saves 3 of the 16 fragment samplers.
+        t.minFilter = t.magFilter = THREE.NearestFilter;
         t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
         t.generateMipmaps = false;
         return t;
@@ -133,7 +134,7 @@ export class TerrainShadows implements System {
                 const cuv = q.sub(coarser.uOrigin).div(coarser.uSize);
                 const inside = cuv.x.greaterThan(0).and(cuv.y.greaterThan(0)).and(cuv.x.lessThan(1)).and(cuv.y.lessThan(1));
                 If(inside, () => {
-                  const cs = coarser.frontNode.sample(cuv).level(float(0)).xy.toVar();
+                  const cs = this.bilinear(coarser, cuv).toVar();
                   const vc = cs.x.sub(t.mul(this.uTanE));
                   If(vc.greaterThan(C), () => {
                     C.assign(vc);
@@ -163,6 +164,20 @@ export class TerrainShadows implements System {
     return Fn(() => this.visibilityImpl(positionWorld))();
   }
 
+  /** Manual bilinear fetch of a level's front texture at uv (0..1). */
+  private bilinear(L: Level, uv: any): any {
+    const res = L.res;
+    const p = uv.mul(res).sub(0.5);
+    const i0 = clamp(floor(p), vec2(0), vec2(res - 1));
+    const f = clamp(p.sub(i0), vec2(0), vec2(1));
+    const i1 = min(i0.add(1), vec2(res - 1));
+    const t00 = L.frontNode.load(ivec2(i0)).xy;
+    const t10 = L.frontNode.load(ivec2(vec2(i1.x, i0.y))).xy;
+    const t01 = L.frontNode.load(ivec2(vec2(i0.x, i1.y))).xy;
+    const t11 = L.frontNode.load(ivec2(i1)).xy;
+    return mix(mix(t00, t10, f.x), mix(t01, t11, f.x), f.y);
+  }
+
   /** TSL: sun visibility at an arbitrary world position (usable in vertex shaders). */
   visibilityAt!: (p: any) => any;
 
@@ -175,7 +190,7 @@ export class TerrainShadows implements System {
       const vis = float(1).toVar();
       const evalLevel = (L: Level) => {
         const uv = p.xz.sub(L.uOrigin).div(L.uSize);
-        const cs = L.frontNode.sample(uv).level(float(0)).xy;
+        const cs = this.bilinear(L, uv);
         const texel = L.uSize.div(L.res);
         const w = max(texel.mul(0.6), cs.y.mul(0.0047).mul(this.uSoft)).add(0.3);
         return smoothstep(w.negate(), w, p.y.add(bias).sub(cs.x));
