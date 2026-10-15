@@ -71,6 +71,9 @@ SSR), TAAU-lite + bloom + lens flare, aircraft + walker + free camera, Interlake
 Perf (MacBook Air M4, uncapped, idle system, 2026-10-15 final run): stress 2560×1440: mean 4.5–6.7 ms, p95
 5.7–9.7 ms on all four paths (governor at 0.54–0.60 scale, full detail); real window 1470×830: 221–348 fps mean,
 p95 3.8–7.2 ms at full resolution and detail. Background indexing (Spotlight/mediaanalysisd) can double these.
+Real-use validation (visible Chrome window 1470×830): capped at 60 Hz, 4 paths × 40 s on a hot machine -> 1 missed
+frame out of 9,591, full resolution and detail throughout; uncapped visible window ≈ 220 fps (4.5 ms). Sustained
+uncapped stress at 2560×1440 for an hour throttles the fanless Air ~2x (worst case, not real use).
 Also: rocks/boulders (scatter + walker collisions), walker collides with buildings.
 Also: OSM roads and hiking trails, procedural audio, impostor depth pre-pass.
 Adaptive governor: dynamic internal resolution (0.40–0.60) then detail level, targeting 100 fps uncapped and

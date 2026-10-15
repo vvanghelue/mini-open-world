@@ -18,6 +18,11 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   Vsync detection = quantised intervals (multiples of the display period). Validate governor changes in a VISIBLE
   capped Chrome (`run.mjs --headful --capped --width=1470 --height=830`): headless vsync has no display jitter and hid
   a bug that dropped quality to the minimum at a steady 60 fps.
+  Each resolution drop is checked (no gain -> reverted, lever blocked 20 s): in geometry-bound views (real window
+  size) lowering the resolution gains nothing and the target reallocation used to cost +0.5 ms.
+- Sustained uncapped benches keep the GPU at 100 %: after ~30-60 min the fanless Air throttles ~2x and even the
+  governor floor cannot hold 10 ms. Real use is capped at 60 Hz (GPU ~30 % busy): validate the user experience with
+  a sustained visible capped run (`run.mjs --headful --capped`, count frames > 25 ms).
 - Background system load (Spotlight `mds_stores`, `mediaanalysisd` indexing new screenshots) can double frame times:
   check `node tools/dev/minimal-probe.mjs` (empty page ≈ 0.45 ms, few spikes) before trusting absolute numbers.
   `screenshots` is a symlink to `screenshots.noindex/` (Spotlight skips `.noindex` folders) so test screenshots do

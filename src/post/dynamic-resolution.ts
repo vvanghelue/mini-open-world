@@ -3,7 +3,9 @@
 //  - uncapped (no vsync): the frame interval is the real frame cost -> target = 1000 / targetFps
 //  - vsync-capped (normal browser, 60 Hz display): intervals sit at the refresh period whatever the GPU load, so
 //    the scale only drops when frames miss vsync and is raised back cautiously after a long clean period.
-// Each change reallocates the internal render targets (~1 ms once): changes are quantised and rate-limited.
+// Each change reallocates the internal render targets (one slow frame): changes are quantised and rate-limited, and
+// every resolution drop is checked: if the next measurement shows no real gain (geometry-bound view, external load),
+// the drop is reverted and the resolution lever is blocked for 20 s (the detail level is used instead).
 // Second stage: once the resolution floor is reached and the budget is still exceeded, the detail level
 // (adaptive.quality) is lowered, shortening forest / grass / rock detail distances; it is restored first when there is
 // headroom (then the resolution). Detail moves smoothly towards its target (dithered LOD transitions stay invisible).
@@ -23,6 +25,8 @@ export class DynamicResolution {
   readonly state: DynResState = { scale: renderSettings.resolutionScale, capped: false, period: 16.67, quality: 1 };
   private qTarget = 1;
   private uncappedVotes = 0;
+  private probe: { from: number; metric: number } | null = null; // pending check of the last resolution drop
+  private resBlockedUntil = -1;
   private samples: number[] = [];
   private sinceChange = 0;
   private cleanTime = 0;
@@ -36,6 +40,8 @@ export class DynamicResolution {
     this.samples.length = 0;
     this.cleanTime = 0;
     this.qTarget = 1;
+    this.probe = null;
+    this.resBlockedUntil = -1;
     this.set(renderSettings.resolutionScale);
   }
 
@@ -44,10 +50,14 @@ export class DynamicResolution {
     return this.state.scale <= min + 1e-4;
   }
 
-  /** Over budget: lower the resolution, or the detail level once the resolution floor is reached. */
-  private degrade(scaleTarget: number) {
-    if (!this.atFloor()) this.set(scaleTarget);
-    else if (this.qTarget > 0) {
+  /** Over budget: lower the resolution (if that lever works here), else the detail level.
+   *  `metric` = what the drop should reduce (p90 uncapped, missed frames capped), checked at the next evaluation. */
+  private degrade(scaleTarget: number, metric: number) {
+    if (!this.atFloor() && this.clock >= this.resBlockedUntil) {
+      const from = this.state.scale;
+      this.set(Math.min(scaleTarget, from - 2 * STEP));
+      if (this.state.scale < from) this.probe = { from, metric };
+    } else if (this.qTarget > 0) {
       this.qTarget = Math.max(0, this.qTarget - 0.25);
       this.sinceChange = 0;
       this.samples.length = 0;
@@ -94,7 +104,7 @@ export class DynamicResolution {
     if (this.clock < 4) return; // loading / shader warm-up hitches are not a load signal
     this.samples.push(intervalMs);
     if (this.samples.length > WINDOW) this.samples.shift();
-    if (this.samples.length < WINDOW || this.sinceChange < 0.4) return;
+    if (this.samples.length < WINDOW || this.sinceChange < 0.8) return;
 
     const sorted = [...this.samples].sort((a, b) => a - b);
     const med = sorted[WINDOW >> 1];
@@ -115,6 +125,19 @@ export class DynamicResolution {
       if (++this.uncappedVotes >= 3) this.state.capped = false;
     } else this.uncappedVotes = 0;
     void p10;
+    // did the last resolution drop pay off?
+    if (this.probe) {
+      const pr = this.probe;
+      this.probe = null;
+      const ineffective = this.state.capped
+        ? misses(this.samples, this.state.period) >= pr.metric * 0.7
+        : pr.metric - p90 < Math.max(0.25, pr.metric * 0.04);
+      if (ineffective) {
+        this.resBlockedUntil = this.clock + 20;
+        this.set(pr.from);
+        return;
+      }
+    }
     const s = this.state.scale;
     const max = renderSettings.resolutionScale;
 
@@ -123,7 +146,7 @@ export class DynamicResolution {
       // spikes (GC, system activity) are not a load signal: require a sustained share of missed frames.
       const missed = misses(this.samples, this.state.period);
       if (missed >= WINDOW * 0.15) {
-        this.degrade(s - 2 * STEP);
+        this.degrade(s - 2 * STEP, missed);
       } else if (missed <= 1) {
         this.cleanTime += this.sinceChange;
         this.sinceChange = 0;
@@ -141,7 +164,7 @@ export class DynamicResolution {
       // proportional step (pixel cost ~ scale^2), at least one step
       const k = Math.sqrt(target / p90);
       // while the detail level is still gliding down, give it time before another step
-      if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(Math.min(s - STEP, s * (0.15 + 0.85 * k)));
+      if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(s * (0.15 + 0.85 * k), p90);
     } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
