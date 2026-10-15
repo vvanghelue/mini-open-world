@@ -220,11 +220,19 @@ for (const el of osm.elements) {
     const ridgeY = eaveY + hw * tanP;
     const o = Math.min(1.1, 0.35 + hw * 0.08); // eave overhang
     const P = (u, v, y) => [c[0] + ax[0] * u + bx[0] * v, y, c[1] + ax[1] * u + bx[1] * v];
+    // wall faces must point away from the house centre (front side, the only one drawn): reverse when they do not
+    const outward = (pts, uvs) => {
+      const m = pts.reduce((s, p) => [s[0] + p[0] / pts.length, s[1] + p[2] / pts.length], [0, 0]);
+      const n = faceNormal(pts[0], pts[1], pts[2]);
+      if (n[0] * (m[0] - c[0]) + n[2] * (m[1] - c[1]) >= 0) return [pts, n, uvs];
+      return [pts.slice().reverse(), [-n[0], -n[1], -n[2]], uvs.slice().reverse()];
+    };
     // walls (long sides at v = +-hw, ends at u = +-hl); wall uv: u along the wall, v = height above eave base
     const wallQuad = (u0, v0, u1, v1) => {
       const a = P(u0, v0, baseY), b = P(u1, v1, baseY), d = P(u1, v1, eaveY), e = P(u0, v0, eaveY);
       const len = Math.hypot(b[0] - a[0], b[2] - a[2]);
-      emitQuad(T, [a, b, d, e], faceNormal(a, b, d), wall, style, [[0, baseY - hAvg], [len, baseY - hAvg], [len, eaveY - hAvg], [0, eaveY - hAvg]]);
+      const [quad, n, uv] = outward([a, b, d, e], [[0, baseY - hAvg], [len, baseY - hAvg], [len, eaveY - hAvg], [0, eaveY - hAvg]]);
+      emitQuad(T, quad, n, wall, style, uv);
     };
     wallQuad(-hl, -hw, hl, -hw);
     wallQuad(hl, -hw, hl, hw);
@@ -233,7 +241,8 @@ for (const el of osm.elements) {
     // gable triangles at both ends
     for (const s of [1, -1]) {
       const a = P(s * hl, -s * hw, eaveY), b = P(s * hl, s * hw, eaveY), d = P(s * hl, 0, ridgeY);
-      emitTri(T, [a, b, d], faceNormal(a, b, d), wall, style, [[0, eaveY - hAvg], [2 * hw, eaveY - hAvg], [hw, ridgeY - hAvg]]);
+      const [tri, n, uv] = outward([a, b, d], [[0, eaveY - hAvg], [2 * hw, eaveY - hAvg], [hw, ridgeY - hAvg]]);
+      emitTri(T, tri, n, wall, style, uv);
     }
     // roof slopes with overhang (+ dark undersides)
     const lu = hl + o, ev = hw + o, ey = eaveY - o * tanP;
