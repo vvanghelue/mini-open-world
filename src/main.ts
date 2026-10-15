@@ -15,7 +15,7 @@ import { TimeOfDay } from './sky/time-of-day';
 import { Atmosphere } from './sky/atmosphere';
 import { Clouds } from './sky/clouds';
 import { TerrainShadows } from './lighting/terrain-shadows';
-import { setupSunShadows } from './lighting/sun-shadows';
+import { setupSunShadows, scheduleSunShadows } from './lighting/sun-shadows';
 import { SkyVisibility } from './lighting/sky-visibility';
 import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
@@ -76,7 +76,8 @@ async function main() {
 
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
-  setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
+  const csm = setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
+  engine.add({ name: 'shadowSchedule', update: (ctx) => scheduleSunShadows(csm, ctx.frame) });
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
   // water reflections: heightfield ray march in a half-resolution screen pass (composited in post)
   postHooks.waterReflection = makeReflectionPass(makeTerrainReflection(terrain, atmosphere, terrainShadows, engine.camera), atmosphere, (dir) => atmosphere.skyNode(dir), engine.camera);

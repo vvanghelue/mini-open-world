@@ -6,12 +6,14 @@ import type { Clouds } from '../sky/clouds';
 import { usesVertexLighting, vlSunVis } from './vertex-lighting';
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { settings } from '../core/settings';
+import { adaptive } from '../core/adaptive';
 import type { TerrainShadows } from './terrain-shadows';
 
 export const sunShadowSettings = settings.group('sunShadows', 'Ombres proches', {
   enabled: { value: true, label: 'Ombres portées proches' },
   distance: { value: 150, min: 40, max: 400, step: 10, label: 'Portée cascades (m)' },
   mapSize: { value: 2048, options: { '1024': 1024, '2048': 2048, '4096': 4096 }, label: 'Résolution' },
+  alternateUnderLoad: { value: true, label: 'Cascades alternées sous charge', hidden: true },
 });
 
 export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.DirectionalLight, terrainShadows: TerrainShadows, clouds: Clouds | null = null) {
@@ -39,12 +41,28 @@ export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.Direc
   (sun.shadow as any).shadowNode = combined;
   settings.on('sunShadows.enabled', (v) => {
     uCSM.value = v ? 1 : 0;
-    // stop rendering the cascade maps when disabled
-    for (const l of (csm as any).lights) l.shadow.autoUpdate = !!v;
   });
   settings.on('sunShadows.distance', (v) => {
     csm.maxFar = v as number;
     csm.updateFrustums();
   });
   return csm;
+}
+
+/**
+ * Per-frame cascade update schedule. Every cascade re-renders all casters (~20 objects, ~40 us of three.js JS each),
+ * so under load (adaptive detail < 0.5) the cascades are refreshed on alternate frames. A cascade that is not
+ * refreshed keeps both its map and its matrix (three updates the shadow matrix only when rendering), so its shadows
+ * stay consistent in world space, one frame old.
+ */
+export function scheduleSunShadows(csm: any, frame: number) {
+  const lights = csm.lights as any[];
+  if (!lights?.length) return;
+  const on = sunShadowSettings.enabled;
+  const alternate = on && sunShadowSettings.alternateUnderLoad && adaptive.quality < 0.5;
+  for (let i = 0; i < lights.length; i++) {
+    const sh = lights[i].shadow;
+    sh.autoUpdate = on && !alternate;
+    if (alternate && frame % lights.length === i) sh.needsUpdate = true;
+  }
 }
