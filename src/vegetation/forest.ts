@@ -86,6 +86,7 @@ export class Forest implements System {
   private uD2 = uniform(2400);
   private uTreeline = uniform(2050);
   private uBlendDist = uniform(300);
+  private uShadowOffset = uniform(new THREE.Vector2());
   private uStochastic = uniform(1);
   private uEarlyDiscard = uniform(0.5);
   private frustum = new THREE.Frustum();
@@ -148,7 +149,8 @@ export class Forest implements System {
       const mesh = new THREE.Mesh(g, mat);
       mesh.frustumCulled = false;
       mesh.receiveShadow = true;
-      mesh.castShadow = false;
+      // only the mesh LODs cast cascaded shadows (impostors are covered by the heightfield canopy shadows)
+      mesh.castShadow = list < 2 * NV;
       mesh.userData.instBase = LIST_BASE[list];
       mesh.userData.drawEntry = entry;
       mesh.userData.pass = pass;
@@ -408,13 +410,19 @@ export class Forest implements System {
       const Ht = heights.element(int(variant)).mul(scale);
       const Rt = radii.element(int(variant)).mul(scale);
       const cx = x, cy = y.add(Ht.mul(0.5)), cz = z;
-      // frustum test (sphere)
+      // frustum test (sphere); near trees are also kept when their shadow (offset towards the shadow
+      // direction) falls into the view, so off-screen trees still cast shadows into the image
       const inside = float(1).toVar();
+      const insideShadow = float(1).toVar();
+      const sx = cx.add(this.uShadowOffset.x), sz = cz.add(this.uShadowOffset.y), sy = cy.sub(Ht.mul(0.5));
       for (let p = 0; p < 6; p++) {
         const pl = this.uPlanes.element(p);
         If(pl.x.mul(cx).add(pl.y.mul(cy)).add(pl.z.mul(cz)).add(pl.w).lessThan(Rt.negate()), () => inside.assign(0));
+        If(pl.x.mul(sx).add(pl.y.mul(sy)).add(pl.z.mul(sz)).add(pl.w).lessThan(Rt.negate()), () => insideShadow.assign(0));
       }
-      If(inside.lessThan(0.5), () => Return());
+      const camD2 = dx.mul(dx).add(dz.mul(dz));
+      const nearCaster = camD2.lessThan(this.uD1.mul(this.uD1)).and(insideShadow.greaterThan(0.5));
+      If(inside.lessThan(0.5).and(nearCaster.not()), () => Return());
       const dist = length(vec3(cx, cy, cz).sub(this.uCam));
       const rotv = rnd(pcg(h1)).mul(6.2831853);
       const seed = rnd(pcg(h0));
@@ -491,6 +499,13 @@ export class Forest implements System {
     this.uD1.value = Math.max(s.lod1Distance, s.lod0Distance * 1.3);
     this.uD2.value = s.maxDistance;
     this.uTreeline.value = s.treeline;
+    // horizontal offset of a tree's shadow (towards -sun), capped
+    {
+      const sd = sunUniforms.dir.value;
+      const horiz = Math.hypot(sd.x, sd.z);
+      const len = Math.min(45, 25 / Math.max(sd.y / Math.max(horiz, 1e-3), 0.3));
+      this.uShadowOffset.value.set(horiz > 1e-3 ? (-sd.x / horiz) * len : 0, horiz > 1e-3 ? (-sd.z / horiz) * len : 0);
+    }
     this.uBlendDist.value = s.impostorBlendDistance;
     this.uStochastic.value = s.impostorStochastic ? 1 : 0;
     this.uEarlyDiscard.value = s.impostorEarlyDiscard ? 0.5 : -1;

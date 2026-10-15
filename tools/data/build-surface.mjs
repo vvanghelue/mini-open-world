@@ -220,8 +220,10 @@ async function main() {
       // water: perfectly flat in the DTM, dark or glacier-milk turquoise (Lake Brienz)
       if (flat < 0.04 && slope < 0.6 && ((lum < 105 && (b >= r - 4 || g > r)) || (lum < 170 && b > r + 10 && g > r + 10))) cls = 4;
       else if ((lum > 175 && sat < 0.2) || (lum > 135 && sat < 0.13 && h > 2200) || (h > 2300 && b > r + 6 && b >= g && sat < 0.35 && lum > 70)) cls = 3;
-      else if (exg > 0.035 && lum < 100 && h < 2250 && slope < 55 && texStd[(Math.floor(y / F)) * M + Math.floor(x / F)] > FOREST_TEX) cls = 0;
-      else if (lum < 50 && h < 2000 && slope < 45 && g >= r - 3 && texStd[(Math.floor(y / F)) * M + Math.floor(x / F)] > FOREST_TEX * 0.7) cls = 0;
+      // forest: dark green and either rough canopy texture or on a slope (fields are flat valley floors)
+      else if (exg > 0.035 && lum < 100 && h < 2250 && slope < 55 && (texStd[(Math.floor(y / F)) * M + Math.floor(x / F)] > FOREST_TEX || slope > 12)) cls = 0;
+      // deep shadow on slopes below the treeline: almost always forest in this region
+      else if (lum < 55 && h < 2000 && slope < 45 && slope > 6 && g >= r - 3) cls = 0;
       else if ((exg > 0.02 && lum >= 100) || (g > r && g > b && h < 2700 && lum >= 60 && slope < 45)) cls = 1;
       else if (h < 1500 && slope < 15 && ((sat < 0.12 && lum > 80 && lum < 225) || (r > g + 20 && r > b + 25))) cls = 5;
       else if (sat > 0.08 && sat < 0.4 && r > g && g > b && lum > 90 && slope < 35) cls = 6;

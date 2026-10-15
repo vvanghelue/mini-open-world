@@ -12,6 +12,7 @@ import { registerBuiltinCommands } from './agent/commands';
 import { TimeOfDay } from './sky/time-of-day';
 import { Atmosphere } from './sky/atmosphere';
 import { TerrainShadows } from './lighting/terrain-shadows';
+import { setupSunShadows } from './lighting/sun-shadows';
 import { Forest } from './vegetation/forest';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
@@ -51,10 +52,8 @@ async function main() {
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
-  // sun visibility = heightfield shadows (custom shadow node: no shadow map rendering for the terrain)
-  engine.renderer.shadowMap.enabled = true;
-  atmosphere.sunLight.castShadow = true;
-  (atmosphere.sunLight.shadow as any).shadowNode = terrainShadows.shadowNode;
+  // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
+  setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
 
   // Initial view: above Wengen, looking at the Jungfrau.

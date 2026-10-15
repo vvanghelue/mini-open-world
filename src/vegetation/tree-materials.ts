@@ -73,6 +73,8 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   })();
   m.opacityNode = xf ? tex.a.mul(fadeVisible(xf.fade)) : tex.a;
   m.alphaTest = 0.45;
+  // the shadow pass ignores opacityNode: cut the cards out explicitly
+  (m as any).maskShadowNode = tex.a.greaterThan(0.45);
   m.aoNode = mix(float(0.5), float(1), ao);
 
   // back-lit translucency (light through needles when looking towards the sun)

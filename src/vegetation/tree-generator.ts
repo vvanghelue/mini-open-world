@@ -29,10 +29,10 @@ export interface TreeParams {
 }
 
 export const TREE_PRESETS: TreeParams[] = [
-  { name: 'spruce_tall', height: 29, crownBase: 0.22, crownRadius: 4.0, whorlSpacing: 0.5, branchesPerWhorl: 5, droop: 0.6, upturn: 0.45, cardSize: 1.9, cardSpacing: 0.62, density: 0.95, trunkRadius: 0.38, tint: [0.9, 0.95, 0.88], topShape: 1, seed: 11 },
-  { name: 'spruce_young', height: 15, crownBase: 0.06, crownRadius: 2.8, whorlSpacing: 0.42, branchesPerWhorl: 5, droop: 0.35, upturn: 0.4, cardSize: 1.5, cardSpacing: 0.5, density: 0.97, trunkRadius: 0.2, tint: [0.98, 1.0, 0.95], topShape: 1, seed: 23 },
-  { name: 'fir', height: 25, crownBase: 0.2, crownRadius: 3.8, whorlSpacing: 0.55, branchesPerWhorl: 5, droop: 0.18, upturn: 0.15, cardSize: 1.9, cardSpacing: 0.6, density: 0.95, trunkRadius: 0.36, tint: [0.82, 0.9, 0.86], topShape: 0.7, seed: 37 },
-  { name: 'larch', height: 23, crownBase: 0.28, crownRadius: 3.2, whorlSpacing: 0.6, branchesPerWhorl: 4, droop: 0.3, upturn: 0.6, cardSize: 1.6, cardSpacing: 0.6, density: 0.8, trunkRadius: 0.32, tint: [1.25, 1.35, 0.95], topShape: 0.9, seed: 51 },
+  { name: 'spruce_tall', height: 29, crownBase: 0.22, crownRadius: 4.0, whorlSpacing: 0.5, branchesPerWhorl: 5, droop: 0.6, upturn: 0.45, cardSize: 1.9, cardSpacing: 0.62, density: 0.95, trunkRadius: 0.38, tint: [0.6, 0.7, 0.58], topShape: 1, seed: 11 },
+  { name: 'spruce_young', height: 15, crownBase: 0.06, crownRadius: 2.8, whorlSpacing: 0.42, branchesPerWhorl: 5, droop: 0.35, upturn: 0.4, cardSize: 1.5, cardSpacing: 0.5, density: 0.97, trunkRadius: 0.2, tint: [0.68, 0.78, 0.62], topShape: 1, seed: 23 },
+  { name: 'fir', height: 25, crownBase: 0.2, crownRadius: 3.8, whorlSpacing: 0.55, branchesPerWhorl: 5, droop: 0.18, upturn: 0.15, cardSize: 1.9, cardSpacing: 0.6, density: 0.95, trunkRadius: 0.36, tint: [0.55, 0.66, 0.6], topShape: 0.7, seed: 37 },
+  { name: 'larch', height: 23, crownBase: 0.28, crownRadius: 3.2, whorlSpacing: 0.6, branchesPerWhorl: 4, droop: 0.3, upturn: 0.6, cardSize: 1.6, cardSpacing: 0.6, density: 0.8, trunkRadius: 0.32, tint: [0.95, 1.05, 0.72], topShape: 0.9, seed: 51 },
 ];
 
 class Rng {
