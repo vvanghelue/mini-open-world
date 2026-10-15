@@ -77,8 +77,9 @@ uncapped stress at 2560×1440 throttles the fanless Air ~2x within 2-3 minutes (
 cold, every path is within budget at both resolutions; hot, the two heaviest paths exceed 10 ms p95 at 2560×1440
 even at the governor floor. CPU fixes (shadow-pass material versions, frozen static matrices): real window
 209–313 fps cold (221–348 before roads, rocks and buildings were added; the fixes recovered most of that cost).
-Hot sustained stress (2 × 40 s × 4 paths at 2560×1440 after hours of continuous load): two consecutive validations
-with all 8 runs within budget, p95 7.1–9.9 ms (valley and lake 9.4–9.9: thin margin); was 13–16 ms before the CPU and governor work. 1–4.6 % of
+Hot sustained stress (2 × 40 s × 4 paths at 2560×1440 after hours of continuous load), with the 2-step output stage:
+two consecutive validations with all 8 runs within budget, p95 5.1–9.4 ms (lake 6.1–6.6, walk 6.9–7.8, flyover
+5.1–8.8, valley 8.5–9.4 — its excess frames sit in the first two segments, low over Interlaken after the start); was 13–16 ms before the CPU and governor work. 1–4.6 % of
 frames exceed 10 ms, of which 0.8–2.1 % are uncapped Chrome's own spikes (tools/dev/spike-rate.mjs on an empty page). Real window hot: 155–224 fps; visible capped 60 Hz: steady, full quality.
 Bugs found by these checks: clouds and water reflections were computed from a wrong camera inside their RTT passes
 (clouds stuck to the screen) — fixed with explicit scene-camera uniforms.

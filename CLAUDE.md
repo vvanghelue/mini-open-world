@@ -15,7 +15,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   `bench` reports the mean/min scale; `ab.mjs` disables it unless `--dyn` (else it absorbs the measured difference).
   Second stage: at the resolution floor, `adaptive.quality` (core/adaptive.ts) shortens forest/grass/rock/building/
   road distances, terrain LOD, cloud and reflection steps, distant forest density (`qualityScaled()`) and alternates
-  the shadow cascades. Third (last) stage: output canvas at 80 % (`adaptive.outputScale`, held >= 30 s). Restored in
+  the shadow cascades. Third (last) stage: output canvas at 80 % then 65 % (`adaptive.outputScale`, each step held
+  >= 30 s; at 2560x1440 the output-size passes dominate the floor). Bench column `out80%` = time with reduced output.
+  `ab.mjs` alternates the variant order between rounds (heat drift within a round). Restored in
   reverse order. `render.forceDetail` (hidden) pins the detail level for A/B. HUD shows all three.
   Vsync detection = quantised intervals (multiples of the display period). Validate governor changes in a VISIBLE
   capped Chrome (`run.mjs --headful --capped --width=1470 --height=830`): headless vsync has no display jitter and hid
