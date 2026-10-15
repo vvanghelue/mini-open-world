@@ -73,7 +73,10 @@ Perf (MacBook Air M4, uncapped, idle system, 2026-10-15 final run): stress 2560�
 p95 3.8–7.2 ms at full resolution and detail. Background indexing (Spotlight/mediaanalysisd) can double these.
 Real-use validation (visible Chrome window 1470×830): capped at 60 Hz, 4 paths × 40 s on a hot machine -> 1 missed
 frame out of 9,591, full resolution and detail throughout; uncapped visible window ≈ 220 fps (4.5 ms). Sustained
-uncapped stress at 2560×1440 for an hour throttles the fanless Air ~2x (worst case, not real use).
+uncapped stress at 2560×1440 throttles the fanless Air ~2x within 2-3 minutes (measured: tools/dev/thermal.mjs);
+cold, every path is within budget at both resolutions; hot, the two heaviest paths exceed 10 ms p95 at 2560×1440
+even at the governor floor. CPU fixes (shadow-pass material versions, frozen static matrices): real window
+209–313 fps cold (was 221–348 before roads/rocks/buildings were added, which the fixes more than paid back).
 Also: rocks/boulders (scatter + walker collisions), walker collides with buildings.
 Also: OSM roads and hiking trails, procedural audio, impostor depth pre-pass.
 Adaptive governor: dynamic internal resolution (0.40–0.60) then detail level, targeting 100 fps uncapped and

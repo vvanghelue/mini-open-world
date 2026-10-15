@@ -31,8 +31,12 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   `npm run uncapped` opens a separate Chrome without the cap (lets the user see real fps).
 - GPU timestamp queries are unusable on Apple (`?gpuTiming` gives nonsense). `queue.onSubmittedWorkDone` latency
   is quantized to Chrome's ticks (~1 frame) — not a frame-cost metric either.
-- `cpu` in stats includes time blocked in `queue.submit` (GPU backpressure). Real JS cost ≈ 3 ms/frame
-  (`tools/profile.mjs`). Below ~0.3 resolution scale the frame becomes CPU-bound: don't diagnose GPU costs there.
+- `cpu` in stats includes time blocked in `queue.submit` (GPU backpressure). At the real window size the frame was
+  CPU-bound (main thread 100 % busy, ~4.4 ms of three.js JS): two fixes made it GPU-bound again — the shadow-pass
+  alphaTest version patch (`core/three-patches.ts`) and `freezeStatic()` (`core/static.ts`) for every static object.
+  Profile with `tools/profile.mjs --width=1470 --height=830`; a high `submit` share means GPU-bound (good).
+- Thermal throttling measured with `tools/dev/thermal.mjs`: same workload 4.5 ms cold -> 8.9 ms after 2.5 min of
+  uncapped load (x1.95), back to cold speed after ~1 min of rest. Uncapped stress numbers depend on the run order.
 - Uncapped Chrome has rare 10–14 ms interval spikes even on an empty page; most p95 excursions are real load at
   specific places: use `bench --timeline` (per-segment mean/p95) and `ab.mjs --range=u0,u1` on the hot segment.
 
