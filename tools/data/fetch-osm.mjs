@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Downloads OpenStreetMap data over the core square (Overpass API):
-//   node tools/data/fetch-osm.mjs [buildings|roads]  -> data-raw/osm/<what>.json
+//   node tools/data/fetch-osm.mjs [buildings|roads] [--force]  -> data-raw/osm/<what>.json (skipped if present)
 // Data © OpenStreetMap contributors, ODbL (attribution shown in the app).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,6 +14,10 @@ const bbox = [a.lat, a.lon, b.lat, b.lon].map((v) => v.toFixed(5)).join(',');
 const filter = what === 'roads' ? 'way["highway"]' : 'way["building"]';
 const query = `[out:json][timeout:300];${filter}(${bbox});out tags geom;`;
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
+if (fs.existsSync(OUT) && !process.argv.includes('--force')) {
+  console.log(`${what}: already downloaded (${path.relative(ROOT, OUT)}), use --force to refresh`);
+  process.exit(0);
+}
 console.log('overpass', bbox);
 const res = await fetch('https://overpass-api.de/api/interpreter', {
   method: 'POST',
