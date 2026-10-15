@@ -253,7 +253,7 @@ export class Clouds implements System {
           If(firstHit.greaterThan(0), () => {
             const hp = ro.add(dir.mul(firstHit));
             const ap = atmo.aerialPerspective(hp, suv);
-            const fade = smoothstep(60000, 30000, firstHit);
+            const fade = float(1).sub(smoothstep(30000, 60000, firstHit));
             L.assign(L.mul(ap.T).add(ap.S.mul(float(1).sub(T))).mul(fade));
             T.assign(mix(float(1), T, fade));
           });

@@ -24,7 +24,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - `npm run data` rebuilds `public/data/` from `data-raw/` (both git-ignored). Raw download: `node tools/data/fetch.mjs`.
   Terrain: `build-terrain.mjs`; surface/land cover: `build-surface.mjs`, `build-far-surface.mjs`; PBR layers:
   `build-textures.mjs`; twig atlas + tight card polygons: `build-trees.mjs`; OSM buildings: `fetch-osm.mjs` (Overpass)
-  then `build-buildings.mjs` (meshes per 1 km tile + collision footprints); previews: `preview.mjs` → `screenshots/`.
+  then `build-buildings.mjs` (meshes per 1 km tile + collision footprints); roads: `fetch-osm.mjs roads` then
+  `build-roads.mjs` (draped ribbons, 16-byte vertices); previews: `preview.mjs` → `screenshots/`.
 - `tree-lab.html` (dev page): procedural tree preview.
 
 ## Agent tools (use these to see and edit the world)
@@ -61,7 +62,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   (`forest.ts`: compute scatter → indirect draws, LOD0/LOD1/4 impostor bands, dithered cross-fades), grass tufts.
   Rocks (`rocks.ts`: land-cover scatter, power-law sizes, sink fade; `RockQuery` CPU replica for collisions).
 - `world/` airfield (runway strip with procedural markings), buildings (OSM, 2 km merged supertiles, procedural
-  facades, night windows, sink into the terrain far away), `colliders.ts` (static colliders for the walker).
+  facades, night windows, sink into the terrain far away), roads/trails (blended decal ribbons with markings, ruts),
+  `colliders.ts` (static colliders for the walker). `audio/audio.ts` procedural WebAudio (wind, engine, steps, bells).
 - `player/` free camera, walker (trunks via CPU replica of the scatter + world colliders), aircraft (flight model, gear).
 - `agent/` bridge client, commands, benchmark camera paths. `editor/` Tweakpane panel (F1) and HUD.
 - World coords: metres, origin = core centre (LV95 2638288/1162288), +X east, +Y up, −Z north. `world/geo.ts` POIs.
@@ -92,4 +94,6 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - Nested `Loop`s: give explicit names `Loop({start,end,name:'j'} as any, ({j}) => …)` or inner `i` shadows outer.
 - Avoid `select(cond, int(a), int(b))` chains in compute (wrong result observed): compute indices with float math (`step`) then `int()`.
 - Reversed depth buffer is on: build frustums with `camera.reversedDepth`.
+- `smoothstep(a, b, x)` with a > b is undefined in WGSL/Metal: write `1 - smoothstep(b, a, x)`.
+- Generated ribbons/quads must be CCW seen from their front (default FrontSide culls the rest silently).
 - Bench paths are splines between keys: check them with `bench-path-check` (they used to go underground).

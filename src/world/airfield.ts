@@ -74,7 +74,8 @@ export class Airfield implements System {
     })();
     const variation = texture(noise, positionWorld.xz.div(41)).r.mul(0.5).add(texture(noise, positionWorld.xz.div(7.3)).g.mul(0.5));
     // tyre marks darken the touchdown zones along the centre
-    const tyre = smoothstep(120, 40, abs(min(uv().x, float(len).sub(uv().x)).sub(450))).mul(smoothstep(6, 1, abs(uv().y))).mul(0.35);
+    // (no reversed-edge smoothstep: undefined in WGSL/Metal)
+    const tyre = float(1).sub(smoothstep(40, 120, abs(min(uv().x, float(len).sub(uv().x)).sub(450)))).mul(float(1).sub(smoothstep(1, 6, abs(uv().y)))).mul(0.35);
     const asphalt = vec3(0.075, 0.074, 0.07).mul(mix(float(0.8), float(1.2), variation)).mul(float(1).sub(tyre));
     m.colorNode = mix(asphalt, vec3(0.62, 0.62, 0.6), paint.mul(0.92));
     m.roughnessNode = mix(float(0.88), float(0.62), paint);

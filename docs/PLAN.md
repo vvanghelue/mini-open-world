@@ -71,5 +71,6 @@ SSR), TAAU-lite + bloom + lens flare, aircraft + walker + free camera, Interlake
 Perf (MacBook Air M4, uncapped): stress 2560×1440 ≈ 4–8 ms mean per path (p95 ≤ 10 ms when not thermally
 throttled; lake path ~12 ms p95 near dense forest); real window 1470×830 ≈ 230–350 fps.
 Also: rocks/boulders (scatter + walker collisions), walker collides with buildings.
-Ideas next: audio, buildings LOD/roof detail, road network, cloud temporal reprojection.
+Also: OSM roads and hiking trails, procedural audio, impostor depth pre-pass.
+Ideas next: buildings LOD/roof detail, cloud temporal reprojection, bridges as 3D decks, rivers flow.
 
