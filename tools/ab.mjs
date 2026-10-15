@@ -40,7 +40,10 @@ try {
   await page.evaluate((p, range) => window.agent.run('bench', { paths: [p], seconds: 3, warmup: 1, range }), pathName, range);
   const results = variants.map(() => []);
   for (let r = 0; r < rounds; r++) {
-    for (let i = 0; i < variants.length; i++) {
+    // odd rounds run the variants in reverse order: heat building up within a round no longer biases the later ones
+    const order = variants.map((_, i) => i);
+    if (r % 2 === 1) order.reverse();
+    for (const i of order) {
       const res = await page.evaluate(async (defaults, kv, p, s, range, dyn) => {
         await window.agent.run('set', defaults); // reset every setting, then apply this variant
         if (!dyn) await window.agent.run('set', { 'render.dynamicResolution': false }); // fixed resolution: fair comparison

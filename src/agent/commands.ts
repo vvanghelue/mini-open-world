@@ -204,6 +204,7 @@ export function registerBuiltinCommands(app: App) {
         const rec = { interval: [] as number[], cpu: [] as number[], gpu: [] as number[] };
         const scales: number[] = [];
         const quals: number[] = [];
+        const outs: number[] = [];
         await new Promise<void>((resolve) => {
           engine.driver = () => {
             const now = performance.now() / 1000;
@@ -213,6 +214,7 @@ export function registerBuiltinCommands(app: App) {
             if (engine.stats.recorder) {
               scales.push(adaptive.scale);
               quals.push(adaptive.quality);
+              outs.push(adaptive.outputScale);
             }
             const u = u0 + (u1 - u0) * Math.min(1, Math.max(0, (el - (warmup ?? 3)) / def.seconds));
             pos.getPointAt(u, engine.camera.position);
@@ -232,6 +234,7 @@ export function registerBuiltinCommands(app: App) {
           timeline: timeline(rec.interval),
           scale: { mean: Math.round((scales.reduce((a, b) => a + b, 0) / Math.max(1, scales.length)) * 1000) / 1000, min: Math.min(...scales) },
           quality: { mean: Math.round((quals.reduce((a, b) => a + b, 0) / Math.max(1, quals.length)) * 100) / 100, min: Math.min(...quals) },
+          outputReduced: Math.round((100 * outs.filter((o) => o < 1).length) / Math.max(1, outs.length)),
           cpuMs: summarize(rec.cpu),
           gpuMs: summarize(rec.gpu),
           drawCalls: engine.stats.drawCalls,

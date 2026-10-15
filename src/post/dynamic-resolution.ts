@@ -9,7 +9,7 @@
 // Second stage: once the resolution floor is reached and the budget is still exceeded, the detail level
 // (adaptive.quality) is lowered, shortening forest / grass / rock detail distances; it is restored first when there is
 // headroom (then the resolution). Detail moves smoothly towards its target (dithered LOD transitions stay invisible).
-// Last resort, at minimum resolution and detail: the output (canvas) resolution drops to 80 % (the output-size passes —
+// Last resort, at minimum resolution and detail: the output (canvas) resolution drops to 80 % then 65 % (output passes —
 // upscale, bloom, tone mapping — dominate at 2560x1440). Restored first. Only reachable on very large windows.
 import { renderSettings } from '../core/engine';
 
@@ -21,6 +21,8 @@ export interface DynResState {
 }
 
 const WINDOW = 40;
+/** Output (canvas) size steps of the last-resort stage. */
+const OUTPUT_STEPS = [1, 0.8, 0.65];
 const STEP = 0.025;
 
 export class DynamicResolution {
@@ -71,8 +73,8 @@ export class DynamicResolution {
       this.qTarget = Math.max(0, this.qTarget - 0.25);
       this.sinceChange = 0;
       this.samples.length = 0;
-    } else if (this.state.quality < 0.02 && this.outputScale === 1) {
-      this.applyOutput((this.outputScale = 0.8));
+    } else if (this.state.quality < 0.02 && this.outputScale > OUTPUT_STEPS[OUTPUT_STEPS.length - 1] && this.clock - this.outputSince > 4) {
+      this.applyOutput((this.outputScale = OUTPUT_STEPS[OUTPUT_STEPS.indexOf(this.outputScale) + 1]));
       this.outputSince = this.clock;
       this.sinceChange = 0;
       this.samples.length = 0;
@@ -87,7 +89,8 @@ export class DynamicResolution {
   private improve(load = 0) {
     if (this.outputScale !== 1) {
       if (this.clock - this.outputSince < 30 || load > 0.62) return;
-      this.applyOutput((this.outputScale = 1));
+      this.applyOutput((this.outputScale = OUTPUT_STEPS[OUTPUT_STEPS.indexOf(this.outputScale) - 1]));
+      this.outputSince = this.clock;
       this.sinceChange = 0;
       this.samples.length = 0;
     } else if (this.qTarget < 1) {
