@@ -245,8 +245,16 @@ Chaque exigence de la demande initiale est vérifiée par une mesure ; relancer 
 |---|---|---|
 ${results.map((r) => `| ${r.requirement} | ${r.pass ? '✅' : '❌'} | ${r.evidence} |`).join('\n')}
 
-Captures produites par le test : \`screenshots/acc_*.png\`.
+Captures produites par le test : \`screenshots/acc_*.png\`. Historique de toutes les exécutions : \`docs/ACCEPTANCE-HISTORY.md\`.
 `;
 fs.writeFileSync(path.join(ROOT, 'docs/ACCEPTANCE.md'), md);
+// history: one line per run (failures included), so repeatability stays visible
+{
+  const hist = path.join(ROOT, 'docs/ACCEPTANCE-HISTORY.md');
+  if (!fs.existsSync(hist)) fs.writeFileSync(hist, '# Historique des tests d\'acceptation\n\n| Date | Résultat | Échecs | Fenêtre réelle (p95 max) | 2560×1440 (p95 max) |\n|---|---|---|---|---|\n');
+  const p95max = (id) => { const r = results.find((x) => x.id === id); const m = r ? [...r.evidence.matchAll(/p95 ([\d.]+) ms/g)].map((x) => +x[1]) : []; return m.length ? Math.max(...m).toFixed(1) + ' ms' : '—'; };
+  const failed = results.filter((r) => !r.pass).map((r) => r.id).join(', ') || '—';
+  fs.appendFileSync(hist, `| ${date} | ${results.filter((r) => r.pass).length} / ${results.length} | ${failed} | ${p95max('100+ fps')} | ${quick ? 'non mesuré' : p95max('stress 1440p')} |\n`);
+}
 console.log(`\n${ok ? 'ALL PASS' : 'SOME CHECKS FAILED'} -> docs/ACCEPTANCE.md`);
 process.exit(ok ? 0 : 1);
