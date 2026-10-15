@@ -20,6 +20,7 @@ import { SkyVisibility } from './lighting/sky-visibility';
 import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
 import { Rocks } from './vegetation/rocks';
+import { AudioSystem } from './audio/audio';
 import { makeTerrainReflection } from './lighting/water-reflection';
 import { BounceGI } from './lighting/bounce-gi';
 import { Airfield } from './world/airfield';
@@ -67,6 +68,7 @@ async function main() {
   const clouds = engine.add(new Clouds(atmosphere));
   engine.add(new Post(clouds));
   const player = engine.add(new Player(terrain, freeCam, input));
+  engine.add(new AudioSystem(terrain, time, player));
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
