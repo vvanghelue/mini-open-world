@@ -204,6 +204,8 @@ export class Props implements System {
         mesh.setMatrixAt(n++, this._m.compose(this._p, this._q, this._s));
       }
       mesh.count = n;
+      // an empty type is hidden: three would otherwise prepare it every frame in the main and shadow passes
+      mesh.visible = n > 0;
       mesh.instanceMatrix.needsUpdate = true;
     }
     editorSettings.count = this.list.length;
