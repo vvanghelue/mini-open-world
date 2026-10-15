@@ -22,7 +22,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   a bug that dropped quality to the minimum at a steady 60 fps.
   Each resolution drop is checked with a trimmed mean (no gain -> further drops pause 8 s / 30 s, the drop is kept):
   in geometry-bound views lowering the resolution gains nothing; p90-based checks misjudged real gains as noise.
-  Vsync detection also needs no frame clearly faster than the period (uncapped ~8.3 ms streams looked like 120 Hz).
+  Vsync detection also needs p10 >= 0.85 period (uncapped ~8.3 ms streams looked like 120 Hz). Known ambiguity: a
+  steady uncapped stream at ~7 ms is indistinguishable from 144 Hz vsync (harmless: the budget is met at that rate).
 - Sustained uncapped benches keep the GPU at 100 %: after ~30-60 min the fanless Air throttles ~2x and even the
   governor floor cannot hold 10 ms. Real use is capped at 60 Hz (GPU ~30 % busy): validate the user experience with
   a sustained visible capped run (`run.mjs --headful --capped`, count frames > 25 ms).

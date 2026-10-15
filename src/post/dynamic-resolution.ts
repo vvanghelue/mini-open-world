@@ -145,15 +145,16 @@ export class DynamicResolution {
     const periods = [16.667, 13.889, 11.111, 8.333, 6.944];
     const near = periods.find((p) => Math.abs(med - p) < Math.max(0.35, p * 0.03));
     if (!this.state.capped) {
-      if (near !== undefined && quantisedShare(this.samples, near) >= 0.85) {
+      // vsync is also a floor: no frame comes clearly faster than the period (an uncapped stream that happens to
+      // average ~8.3 ms would otherwise look like 120 Hz)
+      if (near !== undefined && quantisedShare(this.samples, near) >= 0.85 && p10 >= near * 0.85) {
         this.state.capped = true;
         this.state.period = near;
         this.uncappedVotes = 0;
       }
-    } else if (quantisedShare(this.samples, this.state.period) < 0.6) {
+    } else if (quantisedShare(this.samples, this.state.period) < 0.6 || p10 < this.state.period * 0.75) {
       if (++this.uncappedVotes >= 3) this.state.capped = false;
     } else this.uncappedVotes = 0;
-    void p10;
     // did the last resolution drop pay off?
     if (this.probe) {
       const pr = this.probe;
