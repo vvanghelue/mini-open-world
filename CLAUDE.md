@@ -108,7 +108,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   Rocks (`rocks.ts`: land-cover scatter, power-law sizes, sink fade; `RockQuery` CPU replica for collisions).
 - `world/` airfield (runway strip with procedural markings), buildings (OSM, 2 km merged supertiles, procedural
   facades, night windows, sink into the terrain far away), roads/trails (blended decal ribbons with markings, ruts),
-  `colliders.ts` (static colliders for the walker). `audio/audio.ts` procedural WebAudio (wind, engine, steps, bells).
+  `colliders.ts` (static colliders for the walker), `props.ts` world editor (placed objects: chalet, sapin, rocher,
+  panneau, banc — instanced procedural meshes; mouse place/remove in free camera, panel « Éditeur du monde »;
+  `world/props.json` auto-saved; agent commands `props`, `prop-add {type,e,n|x,z|at camera}`, `prop-remove`, `props-save`). `audio/audio.ts` procedural WebAudio (wind, engine, steps, bells).
 - `player/` free camera, walker (trunks via CPU replica of the scatter + world colliders), aircraft (flight model, gear).
 - `agent/` bridge client, commands, benchmark camera paths. `editor/` Tweakpane panel (F1) and HUD.
 - World coords: metres, origin = core centre (LV95 2638288/1162288), +X east, +Y up, −Z north. `world/geo.ts` POIs.
