@@ -11,6 +11,7 @@ import { worldColliders } from './colliders';
 import { lv95ToWorld, worldToLV95 } from './geo';
 import { makeRockGeometry } from '../vegetation/rocks';
 import { playerSettings } from '../player/player';
+import { BASE_URL } from '../core/data';
 
 export interface Prop {
   id: number;
@@ -146,7 +147,7 @@ export class Props implements System {
       this.meshes.set(type, mesh);
     }
     try {
-      const res = await fetch(`/${FILE}`, { cache: 'no-store' });
+      const res = await fetch(`${BASE_URL}${FILE}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         for (const p of data.props ?? []) this.add(p.type, p.x, p.z, p.yaw, p.scale, false);
@@ -186,6 +187,7 @@ export class Props implements System {
   }
   private changed() {
     this.rebuild();
+    if (!import.meta.env.DEV) return; // static demo: no file writes, edits last for the session
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => void this.save(), 600);
   }

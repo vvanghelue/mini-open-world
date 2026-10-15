@@ -4,6 +4,7 @@ import * as THREE from 'three/webgpu';
 import { generateTree, TREE_PRESETS, TwigRect } from '../vegetation/tree-generator';
 import { makeFoliageMaterial, makeBarkMaterial } from '../vegetation/tree-materials';
 import { loadBitmapTexture } from '../terrain/terrain-textures';
+import { dataUrl, fetchJson } from '../core/data';
 
 const params = new URLSearchParams(location.search);
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -20,13 +21,13 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshS
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-const meta = await (await fetch('/data/trees/twigs.json')).json();
+const meta = await fetchJson('trees/twigs.json');
 const twigs: TwigRect[] = meta.twigs;
 const [twigAlbedo, twigNormal, barkAlbedo, barkNormal] = await Promise.all([
-  loadBitmapTexture('/data/trees/twig_albedo.png', true),
-  loadBitmapTexture('/data/trees/twig_normal.png', false),
-  loadBitmapTexture('/data/trees/bark_albedo.jpg', true),
-  loadBitmapTexture('/data/trees/bark_normal.jpg', false),
+  loadBitmapTexture(dataUrl('trees/twig_albedo.png'), true),
+  loadBitmapTexture(dataUrl('trees/twig_normal.png'), false),
+  loadBitmapTexture(dataUrl('trees/bark_albedo.jpg'), true),
+  loadBitmapTexture(dataUrl('trees/bark_normal.jpg'), false),
 ]);
 for (const t of [barkAlbedo, barkNormal]) t.wrapS = t.wrapT = THREE.RepeatWrapping;
 const tx = { twigAlbedo, twigNormal, barkAlbedo, barkNormal };

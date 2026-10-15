@@ -14,6 +14,7 @@ import { settings } from '../core/settings';
 import { skyVisAt } from '../terrain/terrain-material';
 import { freezeStatic } from '../core/static';
 import { qualityScaled } from '../core/adaptive';
+import { fetchData, fetchJson } from '../core/data';
 
 export const roadSettings = settings.group('roads', 'Roads and trails', {
   enabled: { value: true, label: 'Roads and trails (OSM)' },
@@ -35,12 +36,11 @@ export class Roads implements System {
 
   async init(engine: Engine) {
     this.engine = engine;
-    const base = '/data/roads/';
     let index: { stride: number; tiles: TileInfo[] };
     let bin: ArrayBuffer;
     try {
-      index = await (await fetch(base + 'index.json')).json();
-      bin = await (await fetch(base + 'roads.bin')).arrayBuffer();
+      index = await fetchJson('roads/index.json');
+      bin = await fetchData('roads/roads.bin');
     } catch {
       console.warn('roads: no data (run node tools/data/build-roads.mjs)');
       return;

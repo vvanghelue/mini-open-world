@@ -71,6 +71,16 @@ POI names, code, comments, docs, tool output — no French anywhere in the app o
   then `build-buildings.mjs` (meshes per 1 km tile + collision footprints); roads: `fetch-osm.mjs roads` then
   `build-roads.mjs` (draped ribbons, 16-byte vertices); previews: `preview.mjs` → `screenshots/`.
 - `tree-lab.html` (dev page): procedural tree preview.
+- Live demo (GitHub Pages, https://vvanghelue.github.io/mini-open-world/): `.github/workflows/pages.yml` builds on every
+  push to main (`BASE_PATH=/<repo>/`) and extracts the world data from the release asset `data-v1/web-data.tar`.
+  After a data change: `npm run build:web` (vite build + `tools/data/pack-web.mjs` → `dist/data`, ~167 MB: byte
+  predictors + gzip, listed in `data/web.json`, decoded by `src/core/data.ts`), then
+  `COPYFILE_DISABLE=1 tar --no-xattrs --format ustar -cf web-data.tar -C dist data` and
+  `gh release upload data-v1 web-data.tar --clobber`, then re-run the workflow. Local check: preview_start
+  "web-preview" (http://localhost:4173/mini-open-world/). The static build has no agent bridge and no file writes
+  (screenshot/save commands fail; `agent.run(...)` still works from the console; editor changes last for the session).
+- All data loads go through `src/core/data.ts` (`fetchData`/`fetchJson`/`dataUrl`, BASE_URL-aware). Terrain normal maps
+  are computed in the browser from the heights (`terrain-data.ts`), not shipped.
 
 ## Agent tools (use these to see and edit the world)
 - `node tools/agent.mjs <cmd> [k=v ...|json]` → runs a command in the app open in a browser (via Vite WS bridge).

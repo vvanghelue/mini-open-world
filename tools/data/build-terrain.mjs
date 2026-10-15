@@ -114,23 +114,6 @@ export function resampleBox(src, nIn, nOut, channels = 1) {
   return out;
 }
 
-// RG8 normal map: R = n.x, G = n.z mapped from [-1,1]; n.y is reconstructed (always up-facing).
-export function normalMapRG8(h, n, spacing) {
-  const out = new Uint8Array(n * n * 2);
-  for (let y = 0; y < n; y++) {
-    const ym = Math.max(0, y - 1), yp = Math.min(n - 1, y + 1);
-    for (let x = 0; x < n; x++) {
-      const xm = Math.max(0, x - 1), xp = Math.min(n - 1, x + 1);
-      const dx = (h[y * n + xp] - h[y * n + xm]) / ((xp - xm) * spacing);
-      const dz = (h[yp * n + x] - h[ym * n + x]) / ((yp - ym) * spacing);
-      const inv = 1 / Math.hypot(dx, 1, dz);
-      out[(y * n + x) * 2] = Math.round((-dx * inv * 0.5 + 0.5) * 255);
-      out[(y * n + x) * 2 + 1] = Math.round((-dz * inv * 0.5 + 0.5) * 255);
-    }
-  }
-  return out;
-}
-
 function encodeU16(heights) {
   let lo = Infinity, hi = -Infinity;
   for (const v of heights) { if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -180,8 +163,6 @@ async function main() {
   const coreEnc = encodeU16(core);
   fs.writeFileSync(path.join(OUT, 'core_height.bin'), Buffer.from(coreEnc.q.buffer));
   log(`core heights ${coreEnc.min}..${coreEnc.max} m`);
-  fs.writeFileSync(path.join(OUT, 'core_normal.bin'), normalMapRG8(core, CORE.res, CORE.size / CORE.res));
-  log('core normals');
 
   // Far ring: Copernicus everywhere, core data box-filtered inside the core footprint,
   // with a smooth blend band so the far DSM meets the core DTM without a step.
@@ -234,7 +215,6 @@ async function main() {
   const farEnc = encodeU16(far);
   fs.writeFileSync(path.join(OUT, 'far_height.bin'), Buffer.from(farEnc.q.buffer));
   log(`far heights ${farEnc.min}..${farEnc.max} m`);
-  fs.writeFileSync(path.join(OUT, 'far_normal.bin'), normalMapRG8(far, FAR.res, farSpacing));
 
   const meta = {
     version: 1,

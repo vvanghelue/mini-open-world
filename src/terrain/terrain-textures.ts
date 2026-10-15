@@ -1,5 +1,6 @@
 // Loads the terrain surface textures: macro albedo (de-lit orthophoto), land-cover fractions, PBR layer arrays.
 import * as THREE from 'three/webgpu';
+import { dataUrl, fetchData, fetchJson } from '../core/data';
 
 export interface LayerInfo {
   name: string;
@@ -37,10 +38,8 @@ export async function loadBitmapTexture(url: string, srgb: boolean) {
   return t;
 }
 
-async function loadArray(url: string, res: number, layers: number, srgb: boolean, repeat = true) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${url}: HTTP ${r.status} (run "npm run data")`);
-  const data = new Uint8Array(await r.arrayBuffer());
+async function loadArray(path: string, res: number, layers: number, srgb: boolean, repeat = true) {
+  const data = new Uint8Array(await fetchData(path));
   const t = new THREE.DataArrayTexture(data, res, res, layers);
   t.format = THREE.RGBAFormat;
   t.type = THREE.UnsignedByteType;
@@ -84,15 +83,14 @@ function makeNoise(): THREE.DataTexture {
 }
 
 export async function loadTerrainTextures(): Promise<TerrainTextures> {
-  const base = '/data/';
-  const meta = await (await fetch(base + 'textures/terrain_layers.json')).json();
+  const meta = await fetchJson('textures/terrain_layers.json');
   const [macroAlbedo, landcover, farAlbedo, farLandcover, albedoArray, normalArray] = await Promise.all([
-    loadBitmapTexture(base + 'terrain/core_albedo.jpg', true),
-    loadArray(base + 'terrain/core_landcover.bin', 4096, 2, false, false),
-    loadBitmapTexture(base + 'terrain/far_albedo.jpg', true),
-    loadArray(base + 'terrain/far_landcover.bin', 2048, 2, false, false),
-    loadArray(base + 'textures/terrain_albedo.bin', meta.res, meta.layers.length, true),
-    loadArray(base + 'textures/terrain_normal.bin', meta.res, meta.layers.length, false),
+    loadBitmapTexture(dataUrl('terrain/core_albedo.jpg'), true),
+    loadArray('terrain/core_landcover.bin', 4096, 2, false, false),
+    loadBitmapTexture(dataUrl('terrain/far_albedo.jpg'), true),
+    loadArray('terrain/far_landcover.bin', 2048, 2, false, false),
+    loadArray('textures/terrain_albedo.bin', meta.res, meta.layers.length, true),
+    loadArray('textures/terrain_normal.bin', meta.res, meta.layers.length, false),
   ]);
   return { macroAlbedo, landcover, farAlbedo, farLandcover, albedoArray, normalArray, noise: makeNoise(), layers: meta.layers };
 }

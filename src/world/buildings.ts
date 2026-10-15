@@ -16,6 +16,7 @@ import { skyVisAt, terrainHooks } from '../terrain/terrain-material';
 import { worldColliders } from './colliders';
 import { freezeStatic } from '../core/static';
 import { qualityScaled } from '../core/adaptive';
+import { fetchData, fetchJson } from '../core/data';
 
 export const buildingSettings = settings.group('buildings', 'Buildings', {
   enabled: { value: true, label: 'Buildings (OpenStreetMap)' },
@@ -39,12 +40,11 @@ export class Buildings implements System {
 
   async init(engine: Engine) {
     this.engine = engine;
-    const base = '/data/buildings/';
     let index: { tile: number; stride: number; tiles: TileInfo[] };
     let bin: ArrayBuffer;
     try {
-      index = await (await fetch(base + 'index.json')).json();
-      bin = await (await fetch(base + 'buildings.bin')).arrayBuffer();
+      index = await fetchJson('buildings/index.json');
+      bin = await fetchData('buildings/buildings.bin');
     } catch {
       console.warn('buildings: no data (run node tools/data/build-buildings.mjs)');
       return;
@@ -96,7 +96,7 @@ export class Buildings implements System {
     this.group.name = 'buildings';
     engine.scene.add(this.group);
     freezeStatic(this.group);
-    await this.loadFootprints(base + 'footprints.bin');
+    await this.loadFootprints('buildings/footprints.bin');
     settings.on('buildings.enabled', (v) => (this.group.visible = v as boolean), true);
   }
 
@@ -105,10 +105,10 @@ export class Buildings implements System {
   private grid = new Map<number, number[]>();
   private static CELL = 32;
 
-  private async loadFootprints(url: string) {
+  private async loadFootprints(path: string) {
     let buf: ArrayBuffer;
     try {
-      buf = await (await fetch(url)).arrayBuffer();
+      buf = await fetchData(path);
     } catch {
       return;
     }

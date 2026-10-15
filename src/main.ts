@@ -31,6 +31,7 @@ import { Props } from './world/props';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
+import { BASE_URL } from './core/data';
 
 const loadingText = document.getElementById('loading-text')!;
 const loadingBar = document.getElementById('loading-bar')!;
@@ -41,7 +42,7 @@ const progress = (msg: string, frac: number) => {
 
 async function loadWorldSettings() {
   try {
-    const res = await fetch('/world/settings.json', { cache: 'no-store' });
+    const res = await fetch(`${BASE_URL}world/settings.json`, { cache: 'no-store' });
     if (res.ok) settings.load(await res.json());
   } catch {
     /* no saved settings */

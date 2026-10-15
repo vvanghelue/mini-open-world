@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "vite build && node tools/data/pack-web.mjs dist",
     "typecheck": "tsc --noEmit",
     "agent": "node tools/agent.mjs",
     "bench": "node tools/bench.mjs",

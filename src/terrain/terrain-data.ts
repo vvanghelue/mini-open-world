@@ -1,5 +1,6 @@
-// CPU-side terrain data: heightmaps (for collision / queries), normal maps (uploaded to GPU) and a
-// min/max height pyramid for the CDLOD quadtree. Height sampling here mirrors the GPU code exactly.
+// CPU-side terrain data: heightmaps (for collision / queries), normal maps (computed here from the heights, uploaded to
+// the GPU) and a min/max height pyramid for the CDLOD quadtree. Height sampling here mirrors the GPU code exactly.
+import { downloadSize, fetchData, fetchJson } from '../core/data';
 
 export interface GridInfo {
   res: number;
@@ -22,38 +23,29 @@ export const CORE_BLEND = 400;
 export const LEAF_SIZE = 40; // m, finest quadtree node
 export const MAX_LEVEL = 11; // root = 40 * 2^11 = 81920 m
 
-async function fetchBin(url: string, onProgress?: (loaded: number) => void): Promise<ArrayBuffer> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status} (run "npm run data")`);
-  if (!res.body || !onProgress) return res.arrayBuffer();
-  const total = Number(res.headers.get('content-length')) || 0;
-  const out = total ? new Uint8Array(total) : null;
-  const chunks: Uint8Array[] = [];
-  let loaded = 0;
-  const reader = res.body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (out) out.set(value, loaded);
-    else chunks.push(value);
-    loaded += value.length;
-    onProgress(loaded);
-  }
-  if (out) return out.buffer;
-  const merged = new Uint8Array(loaded);
-  let o = 0;
-  for (const c of chunks) {
-    merged.set(c, o);
-    o += c.length;
-  }
-  return merged.buffer;
-}
-
 function decodeHeights(buf: ArrayBuffer, info: GridInfo): Float32Array {
   const q = new Uint16Array(buf);
   const out = new Float32Array(q.length);
   const k = (info.hMax - info.hMin) / 65535;
   for (let i = 0; i < q.length; i++) out[i] = info.hMin + q[i] * k;
+  return out;
+}
+
+/** RG8 normal map from central differences: R = n.x, G = n.z mapped from [-1, 1]; n.y is reconstructed (up-facing). */
+function normalMapRG8(h: Float32Array, n: number, spacing: number): Uint8Array {
+  const out = new Uint8Array(n * n * 2);
+  for (let y = 0; y < n; y++) {
+    const ym = Math.max(0, y - 1), yp = Math.min(n - 1, y + 1);
+    const sz = 1 / ((yp - ym) * spacing);
+    for (let x = 0; x < n; x++) {
+      const xm = Math.max(0, x - 1), xp = Math.min(n - 1, x + 1);
+      const dx = (h[y * n + xp] - h[y * n + xm]) / ((xp - xm) * spacing);
+      const dz = (h[yp * n + x] - h[ym * n + x]) * sz;
+      const k = 127.5 / Math.sqrt(dx * dx + 1 + dz * dz);
+      out[(y * n + x) * 2] = Math.round(127.5 - dx * k);
+      out[(y * n + x) * 2 + 1] = Math.round(127.5 - dz * k);
+    }
+  }
   return out;
 }
 
@@ -85,28 +77,24 @@ export class TerrainData {
 
   static async load(onProgress?: (msg: string, frac: number) => void): Promise<TerrainData> {
     const d = new TerrainData();
-    const base = '/data/terrain/';
-    d.meta = await (await fetch(base + 'meta.json')).json();
-    const total = 2 * (d.meta.core.res ** 2 * 2) + 2 * (d.meta.far.res ** 2 * 2);
-    let done = 0;
-    const prog = (label: string) => {
-      let last = 0;
-      return (l: number) => {
-        done += l - last;
-        last = l;
-        onProgress?.(`Terrain : ${label}`, done / total);
-      };
-    };
-    const [ch, cn, fh, fn] = await Promise.all([
-      fetchBin(base + 'core_height.bin', prog('altitudes')),
-      fetchBin(base + 'core_normal.bin', prog('normales')),
-      fetchBin(base + 'far_height.bin', prog('horizon')),
-      fetchBin(base + 'far_normal.bin', prog('horizon')),
-    ]);
+    d.meta = await fetchJson('terrain/meta.json');
+    const files = ['terrain/core_height.bin', 'terrain/far_height.bin'];
+    const sizes = await Promise.all(files.map((f, i) => downloadSize(f, (i ? d.meta.far.res : d.meta.core.res) ** 2 * 2)));
+    const total = sizes[0] + sizes[1];
+    const loaded = [0, 0];
+    const [ch, fh] = await Promise.all(
+      files.map((f, i) =>
+        fetchData(f, (l) => {
+          loaded[i] = l;
+          onProgress?.('Terrain: heights', (loaded[0] + loaded[1]) / total);
+        }),
+      ),
+    );
+    onProgress?.('Terrain: normals', 1);
     d.coreH = decodeHeights(ch, d.meta.core);
     d.farH = decodeHeights(fh, d.meta.far);
-    d.coreN = new Uint8Array(cn);
-    d.farN = new Uint8Array(fn);
+    d.coreN = normalMapRG8(d.coreH, d.meta.core.res, d.meta.core.size / d.meta.core.res);
+    d.farN = normalMapRG8(d.farH, d.meta.far.res, d.meta.far.size / d.meta.far.res);
     d.buildMinMax();
     return d;
   }

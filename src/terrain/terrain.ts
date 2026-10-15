@@ -167,7 +167,7 @@ export class Terrain implements System {
       return vec3(w.x, h, w.y);
     })();
 
-    this.onProgress?.('Terrain : textures', 1);
+    this.onProgress?.('Terrain: textures', 1);
     this.textures = await loadTerrainTextures();
     const mat = new THREE.MeshStandardNodeMaterial();
     mat.positionNode = positionNode;

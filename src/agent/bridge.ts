@@ -55,6 +55,7 @@ function safeJson(v: unknown) {
 }
 
 export async function writeProjectFile(relPath: string, data: Blob | ArrayBuffer | ArrayBufferView | string) {
+  if (!import.meta.env.DEV) throw new Error('file writes need the dev server (npm run dev)');
   const res = await fetch(`/__agent/write?path=${encodeURIComponent(relPath)}`, { method: 'POST', body: data as BodyInit });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error);
@@ -64,6 +65,7 @@ export async function writeProjectFile(relPath: string, data: Blob | ArrayBuffer
 export function startBridge(info: Record<string, unknown>) {
   captureConsole();
   (window as any).agent = { run: runCommand, list: listCommands, logs: getLogs };
+  if (!import.meta.env.DEV) return; // static build: no dev server to connect to (commands stay usable from the console)
   let ws: WebSocket | null = null;
   let retry = 500;
   const connect = () => {

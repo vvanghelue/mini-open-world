@@ -24,6 +24,7 @@ import { registerCommand } from '../agent/bridge';
 import { qualityScaled, adaptive } from '../core/adaptive';
 import { lightingHooks } from '../lighting/vertex-lighting';
 import { freezeStatic } from '../core/static';
+import { dataUrl, fetchJson } from '../core/data';
 
 export const forestSettings = settings.group('forest', 'Forest', {
   enabled: { value: true, label: 'Trees' },
@@ -118,8 +119,8 @@ export class Forest implements System {
 
   async init(engine: Engine) {
     this.engine = engine;
-    const base = '/data/trees/';
-    const meta = await (await fetch(base + 'twigs.json')).json();
+    const base = dataUrl('trees/');
+    const meta = await fetchJson('trees/twigs.json');
     const twigs: TwigRect[] = meta.twigs;
     const [twigAlbedo, twigNormal, barkAlbedo, barkNormal] = await Promise.all([
       loadBitmapTexture(base + 'twig_albedo.png', true),

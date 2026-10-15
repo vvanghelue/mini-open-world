@@ -5,6 +5,9 @@ A realistic mountain open world in the browser — the real **Jungfrau, Lauterbr
 Walk around on foot, take off in a plane from Interlaken airfield, tune everything from a side panel, and edit the
 world with the mouse or through commands (designed so that an AI agent can modify it on its own).
 
+**Live demo: https://vvanghelue.github.io/mini-open-world/** — desktop Chrome or Edge with WebGPU; the first
+load downloads ~170 MB of terrain and city data.
+
 ![The Eiger north face from the Kleine Scheidegg pasture](docs/images/eiger.jpg)
 
 | | |
@@ -50,6 +53,9 @@ the view) · `F1` settings panel. The world editor is in the "World editor" sect
 camera to place or remove).
 
 `npm run uncapped` opens a Chrome window without the 60 Hz cap to see the real frame rate.
+
+`npm run build:web` builds the static site with a packed copy of the data (~170 MB instead of ~580 MB) in `dist/`;
+the GitHub Pages demo is deployed by [.github/workflows/pages.yml](.github/workflows/pages.yml).
 
 ## Tools (for humans and agents)
 
