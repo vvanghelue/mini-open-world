@@ -78,7 +78,7 @@ export class RockQuery {
 }
 
 // ---------------------------------------------------------------- meshes
-function makeRockGeometry(variant: number) {
+export function makeRockGeometry(variant: number) {
   // faceted: non-indexed icosphere, displaced by a hash of the (rounded) vertex position so shared corners match
   const g = new THREE.IcosahedronGeometry(1, 1);
   const p = g.attributes.position as THREE.BufferAttribute;

@@ -96,6 +96,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const walked = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
   const blocked = await evalJs(`const b=app.buildings; const poly=b.polys[1234]; let cx=0,cz=0; const n=poly.length/2; for(let i=0;i<n;i++){cx+=poly[i*2];cz+=poly[i*2+1];} const p={x:cx/n,z:cz/n}; b.pushOut(p,0.35); return Math.hypot(p.x-cx/n,p.z-cz/n) > 0.5;`);
   check('marche', 'Se promener à pied', walked > 2 && p1[2] && blocked, `${walked.toFixed(1)} m parcourus en 2,5 s au sol ; les murs des bâtiments bloquent le marcheur`);
+
+  // world editor: place a chalet 10 m ahead of the walker (6 s of walking would cross it), it must block; saved
+  const before = await evalJs(`return app.props.list.length;`);
+  const ch = await evalJs(`const w=app.player.walker; const f={x:-Math.sin(w.yaw), z:-Math.cos(w.yaw)}; const p=app.props.add("chalet", w.feet.x+f.x*10, w.feet.z+f.z*10, 0, 1); return {id:p.id, x:p.x, z:p.z};`);
+  await page.keyboard.down('KeyW');
+  await sleep(6000);
+  await page.keyboard.up('KeyW');
+  const d = await evalJs(`const w=app.player.walker; return Math.hypot(w.feet.x-${ch.x}, w.feet.z-${ch.z});`);
+  await run('props-save', {});
+  const saved = JSON.parse(fs.readFileSync(path.join(ROOT, 'world/props.json'), 'utf8')).props.length;
+  await run('prop-remove', { id: ch.id });
+  await run('props-save', {});
+  check('éditeur', 'Monde éditable (éditeur)', d >= 4.5 && saved === before + 1, `chalet placé, le marcheur s'arrête à ${d.toFixed(1)} m de son centre (mur à 4,6 m) ; enregistré dans world/props.json puis retiré ; placement/suppression à la souris en caméra libre (section « Éditeur du monde »)`);
   await run('mode', { mode: 'free' });
 
   // day / night: exposure-adapted but darker at night, lit windows

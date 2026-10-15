@@ -27,6 +27,7 @@ import { BounceGI } from './lighting/bounce-gi';
 import { Airfield } from './world/airfield';
 import { Buildings } from './world/buildings';
 import { Roads } from './world/roads';
+import { Props } from './world/props';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
@@ -71,6 +72,7 @@ async function main() {
   const clouds = engine.add(new Clouds(atmosphere));
   engine.add(new Post(clouds));
   const player = engine.add(new Player(terrain, freeCam, input));
+  const props = engine.add(new Props(terrain, input));
   engine.add(new AudioSystem(terrain, time, player));
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
@@ -104,7 +106,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, buildings, roads, forest, grass, rocks, player, clouds, adaptive };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, bounceGI, buildings, roads, forest, grass, rocks, player, props, clouds, adaptive };
   (window as any).app = app;
   registerBuiltinCommands(app);
 
