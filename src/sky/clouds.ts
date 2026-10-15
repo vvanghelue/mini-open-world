@@ -201,9 +201,12 @@ export class Clouds implements System {
         const inside = ro.y.greaterThan(y0).and(ro.y.lessThan(y1));
         const t0 = select3(inside, float(0), tIn).toVar();
         const t1 = min(min(select3(inside, select3(abs(dir.y).lessThan(1e-4), float(60000), max(ta, tb)), tOut), select3(isSky, float(80000), sceneDist)), 80000).toVar();
+        // grazing rays cross tens of km of the layer: cap the crossing, and give long crossings more steps
+        // (a few km-long steps turn each cumulus into a single saturated sample: flat strips at the horizon)
+        t1.assign(min(t1, t0.add(40000)));
         If(t1.greaterThan(t0), () => {
-          const steps = this.uSteps;
           const len = t1.sub(t0);
+          const steps = clamp(len.div(500), this.uSteps, 56);
           const dt = len.div(steps).max(30);
           const jitter = interleavedGradientNoise(screenCoordinate.xy.add(fract(time.mul(7.13)).mul(64)));
           const t = t0.add(dt.mul(jitter)).toVar();
@@ -215,7 +218,7 @@ export class Clouds implements System {
           const phase = mix(hg(float(-0.25)), hg(float(0.7)), 0.7);
           const ambientTop = atmo.skyIrradiance(vec3(0, 1, 0)).mul(1 / Math.PI);
           Loop({ start: 0, end: 64, name: 'ci' } as any, ({ ci }) => {
-            If(int(ci).greaterThanEqual(int(steps)).or(t.greaterThan(t1)).or(T.lessThan(0.02)), () => Break());
+            If(float(ci).greaterThanEqual(steps).or(t.greaterThan(t1)).or(T.lessThan(0.02)), () => Break());
             const p = ro.add(dir.mul(t));
             const dens = float(0).toVar();
             If(this.coverage(p.xz).greaterThan(0.001), () => {
@@ -244,11 +247,13 @@ export class Clouds implements System {
             });
             t.addAssign(dt);
           });
-          // aerial perspective at the first cloud hit
+          // aerial perspective at the first cloud hit; very distant clouds dissolve into the haze
           If(firstHit.greaterThan(0), () => {
             const hp = ro.add(dir.mul(firstHit));
             const ap = atmo.aerialPerspective(hp, suv);
-            L.assign(L.mul(ap.T).add(ap.S.mul(float(1).sub(T))));
+            const fade = smoothstep(60000, 30000, firstHit);
+            L.assign(L.mul(ap.T).add(ap.S.mul(float(1).sub(T))).mul(fade));
+            T.assign(mix(float(1), T, fade));
           });
           out.assign(vec4(L, T));
         });
