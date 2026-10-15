@@ -19,6 +19,7 @@ import { setupSunShadows } from './lighting/sun-shadows';
 import { SkyVisibility } from './lighting/sky-visibility';
 import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
+import { makeTerrainReflection } from './lighting/water-reflection';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
@@ -64,6 +65,7 @@ async function main() {
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
   setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
+  terrainHooks.reflection = makeTerrainReflection(terrain, atmosphere, terrainShadows);
   terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
   lightingHooks.sunVisibilityAt = (p, cam) => (cam ? terrainShadows.visibilityFromAt(p, cam) : terrainShadows.visibilityAt(p)).mul(clouds.shadowAt(p));
   lightingHooks.apAt = (p, suv) => atmosphere.aerialPerspective(p, suv);

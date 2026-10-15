@@ -17,13 +17,19 @@ export const terrainMatSettings = settings.group('terrainMat', 'Terrain — mat�
   normalStrength: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Relief des textures' },
   heightBlend: { value: 3.0, min: 0, max: 8, step: 0.1, label: 'Mélange par hauteur' },
   cliffAngle: { value: 0.42, min: 0.2, max: 0.8, step: 0.01, label: 'Seuil falaise (1-cos)' },
+  canopyDarkening: { value: 1, min: 0, max: 1, step: 0.05, label: 'Assombrissement forêts lointaines' },
   macroOnly: { value: false, label: 'Orthophoto seule (debug)' },
 });
 
 const TILE = [5, 4, 7, 14, 9, 4, 7, 12]; // metres per texture repeat, per layer
 
 /** Late-bound hooks provided by other systems (set before the first render). */
-export const terrainHooks: { sky: ((dir: any) => any) | null; skyVis: ((xz: any) => any) | null } = { sky: null, skyVis: null };
+export const terrainHooks: {
+  sky: ((dir: any) => any) | null;
+  skyVis: ((xz: any) => any) | null;
+  /** Reflected radiance for water: (origin, direction, sky radiance along direction) -> radiance. */
+  reflection: ((o: any, d: any, sky: any) => any) | null;
+} = { sky: null, skyVis: null, reflection: null };
 
 /** Sky visibility at world xz if available (late-bound), else 1. */
 export const skyVisAt = (xz: any) => (terrainHooks.skyVis ? terrainHooks.skyVis(xz) : float(1));
@@ -45,6 +51,8 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
   const uHeightBlend = uniform(terrainMatSettings.heightBlend);
   const uCliff = uniform(terrainMatSettings.cliffAngle);
   const uMacroOnly = uniform(terrainMatSettings.macroOnly ? 1 : 0);
+  const uCanopyDark = uniform(terrainMatSettings.canopyDarkening);
+  settings.on('terrainMat.canopyDarkening', (v) => (uCanopyDark.value = v as number));
   settings.on('terrainMat.detailDistance', (v) => (uDetailDist.value = v as number));
   settings.on('terrainMat.tintStrength', (v) => (uTint.value = v as number));
   settings.on('terrainMat.normalStrength', (v) => (uNormalStr.value = v as number));
@@ -186,6 +194,9 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
     const macroProc = means[0].mul(w[0]).add(vec3(0.035, 0.055, 0.025).mul(w[1])).add(means[2].mul(w[2])).add(means[3].mul(w[3])).add(vec3(0.75, 0.77, 0.8).mul(w[4]))
       .add(means[5].mul(w[5])).add(means[6].mul(w[6])).add(means[7].mul(w[7])).div(wSum).mul(n1.a.mul(0.4).add(0.8));
     const macro = mix(mix(macroProc, macroFar, hasLC), macroCore, cw).toVar();
+    // the de-lit orthophoto flattens forest canopies to grey-green (their self-shadowing was divided out with the
+    // relief shading): away from the visible forest floor, forested ground takes a darker canopy albedo
+    macro.mulAssign(mix(vec3(1), vec3(0.42, 0.46, 0.4), forest.mul(smoothstep(250, 1200, dist)).mul(uCanopyDark)));
 
     // distant cliffs: the top-down photo is stretched on steep faces -> large-scale triplanar rock, photo-tinted
     const farCliff = smoothstep(uCliff.add(0.05), uCliff.add(0.2), slope).mul(float(1).sub(nearW)).toVar();
@@ -218,7 +229,7 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
       const r2 = texture(tx.noise, p.xz.div(7.1).sub(vec2(time.mul(0.019), time.mul(-0.013)))).ba;
       const fadeRip = float(1).sub(smoothstep(200, 3000, dist));
       const rip = r1.add(r2).sub(1).mul(0.09).mul(fadeRip);
-      albedo.assign(mix(albedo, macro.mul(0.35), waterW));
+      albedo.assign(mix(albedo, macro.mul(0.25), waterW));
       nWorld.assign(normalize(mix(nWorld, normalize(vec3(rip.x, 1, rip.y)), waterW)));
       rough.assign(mix(rough, float(0.05), waterW));
       ao.assign(mix(ao, float(1), waterW));
@@ -231,17 +242,23 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
     return vec4(albedo, 1);
   })();
   mat.normalNode = transformNormalToView(pNormal);
-  // sky reflection on water (late-bound: the atmosphere is initialised after the terrain)
+  // water reflections: terrain (heightfield ray march, lighting/water-reflection.ts) + sky, Fresnel-weighted
+  // (late-bound: the atmosphere is initialised after the terrain)
   (mat as any).emissiveNode = Fn(() => {
     const out = vec3(0).toVar();
     If(pWater.greaterThan(0.001), () => {
       if (!terrainHooks.sky) return;
       const v = normalize(positionWorld.sub(cameraPosition));
-      const r = reflect(v, pNormal);
+      // reflections use a calmer normal: full-strength ripples alias into speckles in the mirrored relief
+      const dW = length(positionWorld.sub(cameraPosition));
+      const nR = normalize(mix(vec3(0, 1, 0), pNormal, mix(float(0.45), float(0.15), smoothstep(30, 800, dW))));
+      const r = reflect(v, nR);
       const rr = vec3(r.x, max(r.y, 0.01), r.z).normalize();
       const cosT = clamp(dot(v.negate(), pNormal), 0, 1);
       const F = float(0.02).add(float(0.98).mul(pow(float(1).sub(cosT), 5)));
-      out.assign(terrainHooks.sky(rr).mul(F).mul(pWater));
+      const sky = terrainHooks.sky(rr);
+      const refl = terrainHooks.reflection ? terrainHooks.reflection(positionWorld.add(vec3(0, 0.3, 0)), rr, sky) : sky;
+      out.assign(refl.mul(F).mul(pWater));
     });
     return out;
   })();

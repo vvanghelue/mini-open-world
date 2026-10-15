@@ -32,4 +32,6 @@ export const POIS: Record<string, { e: number; n: number; label: string }> = {
   airfield: { e: 2633710, n: 1169580, label: 'Aérodrome d\'Interlaken' },
   kleinescheidegg: { e: 2640043, n: 1159470, label: 'Kleine Scheidegg' },
   schilthorn: { e: 2630409, n: 1156367, label: 'Schilthorn' },
+  brienzersee: { e: 2641000, n: 1174500, label: 'Lac de Brienz' },
+  thunersee: { e: 2624500, n: 1170200, label: 'Lac de Thoune' },
 };

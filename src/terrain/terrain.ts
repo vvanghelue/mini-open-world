@@ -100,6 +100,8 @@ export class Terrain implements System {
   coreHeightTex!: THREE.DataTexture;
   textures!: TerrainTextures;
   farHeightTex!: THREE.DataTexture;
+  coreNormalTex!: THREE.DataTexture;
+  farNormalTex!: THREE.DataTexture;
 
   constructor(private onProgress?: (msg: string, frac: number) => void) {}
 
@@ -111,8 +113,8 @@ export class Terrain implements System {
 
     this.coreHeightTex = floatTexture(this.data.coreH, m.core.res);
     this.farHeightTex = floatTexture(this.data.farH, m.far.res);
-    const coreNormalTex = normalTexture(this.data.coreN, m.core.res);
-    const farNormalTex = normalTexture(this.data.farN, m.far.res);
+    const coreNormalTex = (this.coreNormalTex = normalTexture(this.data.coreN, m.core.res));
+    const farNormalTex = (this.farNormalTex = normalTexture(this.data.farN, m.far.res));
 
     const uCoreSize = uniform(m.core.size);
     const uFarSize = uniform(m.far.size);

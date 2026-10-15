@@ -53,6 +53,24 @@ export const BENCH_PATHS: Record<string, PathDef> = {
       { at: 'interlaken', h: 0 },
     ],
   },
+  lake: {
+    label: 'Vol bas le long du lac de Brienz (reflets)',
+    seconds: 30,
+    keys: [
+      { at: [2635800, 1171200], h: 60 },
+      { at: [2638500, 1172300], h: 45 },
+      { at: [2641000, 1174500], h: 40 },
+      { at: [2643500, 1175600], h: 50 },
+      { at: [2646000, 1176800], h: 70 },
+    ],
+    look: [
+      { at: [2641000, 1174500], h: 200 },
+      { at: [2643500, 1175600], h: 150 },
+      { at: [2646000, 1176800], h: 150 },
+      { at: [2648500, 1178000], h: 200 },
+      { at: [2651000, 1179000], h: 300 },
+    ],
+  },
   walk: {
     label: 'Marche près de Kleine Scheidegg',
     seconds: 30,
