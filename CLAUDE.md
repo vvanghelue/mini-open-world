@@ -23,7 +23,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - `npm run dev` (or preview_start "dev") → http://localhost:5173 (Chrome only, WebGPU).
 - `npm run data` rebuilds `public/data/` from `data-raw/` (both git-ignored). Raw download: `node tools/data/fetch.mjs`.
   Terrain: `build-terrain.mjs`; surface/land cover: `build-surface.mjs`, `build-far-surface.mjs`; PBR layers:
-  `build-textures.mjs`; twig atlas + tight card polygons: `build-trees.mjs`; previews: `preview.mjs` → `screenshots/`.
+  `build-textures.mjs`; twig atlas + tight card polygons: `build-trees.mjs`; OSM buildings: `fetch-osm.mjs` (Overpass)
+  then `build-buildings.mjs` (meshes per 1 km tile + collision footprints); previews: `preview.mjs` → `screenshots/`.
 - `tree-lab.html` (dev page): procedural tree preview.
 
 ## Agent tools (use these to see and edit the world)
@@ -54,10 +55,13 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   Perlin-Worley + weather map, half-res march). `post/` TAAU-lite upscale (rg11b10 history), bloom, lens flare, ACES.
 - `lighting/` heightfield shadow clipmap (`terrain-shadows.ts`, mountains + canopy to the horizon), near CSM
   (`sun-shadows.ts`), baked sky visibility (`sky-visibility.ts`), per-vertex/per-instance lighting for vegetation
-  (`vertex-lighting.ts`), water reflections by heightfield ray march (`water-reflection.ts`).
+  (`vertex-lighting.ts`), water reflections by heightfield ray march (`water-reflection.ts`), one-bounce terrain GI
+  (`bounce-gi.ts`, 2.5D irradiance grid re-baked progressively when the sun moves; `gi-probe` command).
 - `vegetation/` procedural conifers (`tree-generator.ts`), materials, octahedral impostors, GPU-scattered forest
   (`forest.ts`: compute scatter → indirect draws, LOD0/LOD1/4 impostor bands, dithered cross-fades), grass tufts.
-- `player/` free camera, walker (trunk collisions via CPU replica of the scatter), aircraft (flight model, gear).
+- `world/` airfield (runway strip with procedural markings), buildings (OSM, 2 km merged supertiles, procedural
+  facades, night windows, sink into the terrain far away), `colliders.ts` (static colliders for the walker).
+- `player/` free camera, walker (trunks via CPU replica of the scatter + world colliders), aircraft (flight model, gear).
 - `agent/` bridge client, commands, benchmark camera paths. `editor/` Tweakpane panel (F1) and HUD.
 - World coords: metres, origin = core centre (LV95 2638288/1162288), +X east, +Y up, −Z north. `world/geo.ts` POIs.
 
@@ -76,7 +80,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 
 ## Data
 - Core 24.576 km square, 8192² heights (3 m, swissALTI3D 2 m source), far ring 81.92 km at 40 m (Copernicus GLO-30).
-- Attribution required: © swisstopo; Copernicus DEM © DLR/Airbus (EU/ESA).
+- Buildings: OpenStreetMap footprints (~24k in the core), heights from tags or per type.
+- Attribution required (shown bottom-right, `#credits` in index.html): © swisstopo; Copernicus DEM © DLR/Airbus
+  (EU/ESA); © OpenStreetMap contributors (ODbL); CC0 textures (Poly Haven, ambientCG).
 
 ## Gotchas
 - `patch` is a reserved WGSL word (don't use it as attribute name). `window.app` collided with `<div id="app">`.

@@ -61,3 +61,14 @@ The world is editable both by the user (side panel + editor) and by Claude as an
 5. GI (sky visibility, probe field), post stack (TAA, bloom, lens flare, SSR water).
 6. Plane + walker controllers, airfield.
 7. Clouds, water polish, final optimisation pass, docs.
+
+## Status (2026-10-15)
+Done: foundations + agent tools, data pipeline (DEM, ortho, land cover, PBR layers, OSM buildings), CDLOD terrain,
+Hillaire atmosphere + day/night + stars/moon + perceptual night exposure, heightfield shadows to the horizon + near
+CSM + cloud shadows, baked sky visibility + one-bounce terrain GI, GPU forest (mesh LODs, octahedral impostors,
+per-tree lighting, depth pre-pass), grass, volumetric clouds, water with heightfield-raymarched reflections (replaces
+SSR), TAAU-lite + bloom + lens flare, aircraft + walker + free camera, Interlaken runway, ~24k buildings.
+Perf (MacBook Air M4, uncapped): stress 2560×1440 ≈ 4–8 ms mean per path (p95 ≤ 10 ms when not thermally
+throttled; lake path ~12 ms p95 near dense forest); real window 1470×830 ≈ 230–350 fps.
+Ideas next: rocks/boulders, audio, buildings LOD/roof detail, road network, cloud temporal reprojection.
+
