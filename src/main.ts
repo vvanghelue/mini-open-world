@@ -21,6 +21,7 @@ import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
 import { makeTerrainReflection } from './lighting/water-reflection';
 import { BounceGI } from './lighting/bounce-gi';
+import { Airfield } from './world/airfield';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
@@ -52,6 +53,7 @@ async function main() {
 
   const time = engine.add(new TimeOfDay());
   const terrain = engine.add(new Terrain(progress));
+  engine.add(new Airfield(terrain));
   const atmosphere = engine.add(new Atmosphere(time));
   const terrainShadows = engine.add(new TerrainShadows(terrain, time));
   const skyVisibility = engine.add(new SkyVisibility(terrain));

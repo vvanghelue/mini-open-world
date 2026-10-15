@@ -19,9 +19,9 @@ const M = 4096; // output (6 m)
 const F = N / M; // 3
 const FOREST_TEX = Number(process.env.FOREST_TEX || 9); // luminance std threshold separating canopy from fields
 // Interlaken airfield (LSMI) runway, measured on SWISSIMAGE: SW threshold -> NE threshold (LV95)
-const RUNWAYS = [[2633155, 1169038, 2634385, 1170283, 15]].map(([e0, n0, e1, n1, hw]) => {
+const RUNWAYS = [[2633155, 1169038, 2634385, 1170283, 15, 110]].map(([e0, n0, e1, n1, hw, clear]) => {
   const len = Math.hypot(e1 - e0, n1 - n0);
-  return { e0, n0, ue: (e1 - e0) / len, un: (n1 - n0) / len, len, halfWidth: hw };
+  return { e0, n0, ue: (e1 - e0) / len, un: (n1 - n0) / len, len, halfWidth: hw, clearHalfWidth: clear };
 });
 
 const t0 = Date.now();
@@ -200,6 +200,7 @@ async function main() {
   const lc1 = new Float32Array(M * M * 4);
   const lc2 = new Float32Array(M * M * 4);
   const counts = new Array(7).fill(0);
+  const slopeM = new Float32Array(M * M); // mean slope (deg) per output cell
   for (let y = 0; y < N; y++) {
     const yu = Math.max(0, y - 1), yd = Math.min(N - 1, y + 1);
     for (let x = 0; x < N; x++) {
@@ -234,12 +235,52 @@ async function main() {
         const dx = E - rw.e0, dn = Nn - rw.n0;
         const along = (dx * rw.ue + dn * rw.un), across = Math.abs(-dx * rw.un + dn * rw.ue);
         if (along > -20 && along < rw.len + 20 && across < rw.halfWidth) cls = 5;
+        // the airfield's grass areas: no forest (hedges / dark mown grass are misread as canopy)
+        else if (cls === 0 && along > -150 && along < rw.len + 150 && across < rw.clearHalfWidth) cls = 1;
       }
       counts[cls]++;
+      slopeM[Math.floor(y / F) * M + Math.floor(x / F)] += slope / (F * F);
       const o = (Math.floor(y / F) * M + Math.floor(x / F)) * 4;
       if (cls < 4) lc1[o + cls] += 1 / (F * F);
       else lc2[o + cls - 4] += 1 / (F * F);
     }
+  }
+  // forest clean-up on flat ground: gardens, hedges, single trees and building shadows read as "forest" and
+  // dotted the valley floors and villages with conifers. Keep forest only where its ~65 m neighbourhood is mostly
+  // wooded, and not inside built-up areas. Slopes are left alone (sparse larch meadows are real).
+  {
+    const boxAvg = (src, ch, r) => {
+      const sat = new Float64Array((M + 1) * (M + 1));
+      for (let y = 0; y < M; y++) {
+        let row = 0;
+        for (let x = 0; x < M; x++) {
+          row += src[(y * M + x) * 4 + ch];
+          sat[(y + 1) * (M + 1) + x + 1] = sat[y * (M + 1) + x + 1] + row;
+        }
+      }
+      const out = new Float32Array(M * M);
+      for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
+        const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(M, x + r + 1), y1 = Math.min(M, y + r + 1);
+        const sum = sat[y1 * (M + 1) + x1] - sat[y0 * (M + 1) + x1] - sat[y1 * (M + 1) + x0] + sat[y0 * (M + 1) + x0];
+        out[y * M + x] = sum / ((x1 - x0) * (y1 - y0));
+      }
+      return out;
+    };
+    const ss = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const forestAvg = boxAvg(lc1, 0, 5);
+    const urbanAvg = boxAvg(lc2, 1, 8);
+    let removed = 0;
+    for (let o = 0; o < M * M; o++) {
+      const f = lc1[o * 4];
+      if (f <= 0) continue;
+      const flat = ss(18, 8, slopeM[o]);
+      const keep = ss(0.25, 0.5, forestAvg[o]) * (1 - ss(0.08, 0.25, urbanAvg[o]));
+      const nf = f * (1 - flat + flat * keep);
+      lc1[o * 4] = nf;
+      lc1[o * 4 + 1] += f - nf; // becomes meadow
+      removed += f - nf;
+    }
+    log(`forest clean-up: ${((removed / (M * M)) * 100).toFixed(2)} % of the area turned from forest to meadow`);
   }
   // 3x3 smoothing for soft transitions
   const smooth = (src) => {
