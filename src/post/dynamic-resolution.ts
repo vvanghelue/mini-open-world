@@ -5,7 +5,7 @@
 //    the scale only drops when frames miss vsync and is raised back cautiously after a long clean period.
 // Each change reallocates the internal render targets (one slow frame): changes are quantised and rate-limited, and
 // every resolution drop is checked: if the next measurement shows no real gain (geometry-bound view, external load),
-// the drop is reverted and the resolution lever is blocked for 20 s (the detail level is used instead).
+// further resolution drops pause (8 s, 30 s on repeated strikes) and the detail level is used instead.
 // Second stage: once the resolution floor is reached and the budget is still exceeded, the detail level
 // (adaptive.quality) is lowered, shortening forest / grass / rock detail distances; it is restored first when there is
 // headroom (then the resolution). Detail moves smoothly towards its target (dithered LOD transitions stay invisible).
@@ -29,7 +29,8 @@ export class DynamicResolution {
   private uncappedVotes = 0;
   private probe: { from: number; metric: number } | null = null; // pending check of the last resolution drop
   private resBlockedUntil = -1;
-  private probeStrikes = 0; // consecutive ineffective resolution drops
+  private probeStrikes = 0; // recent ineffective resolution drops
+  private lastStrike = -1e9;
   private samples: number[] = [];
   private sinceChange = 0;
   private cleanTime = 0;
@@ -161,13 +162,14 @@ export class DynamicResolution {
         ? misses(this.samples, this.state.period) >= pr.metric * 0.7
         : pr.metric - tm < Math.max(0.12, pr.metric * 0.02);
       if (ineffective) {
-        // first strike: short block (could be noise); repeated: the view is not pixel-bound, use the detail level
+        // the drop is kept (reverting costs another reallocation, and in a fast-changing view the "no gain" may be
+        // scene variation): further drops pause 8 s, or 30 s on repeated strikes (view not pixel-bound: the
+        // detail level takes over). Strikes expire after 45 s.
+        if (this.clock - this.lastStrike > 45) this.probeStrikes = 0;
         this.probeStrikes++;
+        this.lastStrike = this.clock;
         this.resBlockedUntil = this.clock + (this.probeStrikes >= 2 ? 30 : 8);
-        this.set(pr.from);
-        return;
-      }
-      this.probeStrikes = 0;
+      } else this.probeStrikes = 0;
     }
     const s = this.state.scale;
     const max = renderSettings.resolutionScale;
