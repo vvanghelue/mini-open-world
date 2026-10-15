@@ -14,6 +14,7 @@ import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
 import type { TimeOfDay } from './time-of-day';
 import { SkyLight, registerSkyLight } from './sky-light';
+import { usesVertexLighting, vlApS, vlApT } from '../lighting/vertex-lighting';
 import {
   R_GROUND, R_TOP, RAYLEIGH_SCATTERING, RAYLEIGH_SCALE_HEIGHT, MIE_SCATTERING, MIE_EXTINCTION, MIE_SCALE_HEIGHT,
   OZONE_ABSORPTION, SUN_ILLUMINANCE, SUN_ANGULAR_RADIUS, MOON_ANGULAR_RADIUS, MOON_ILLUMINANCE, transmittanceCPU,
@@ -521,7 +522,9 @@ export class Atmosphere implements System {
   }
 
   private fogNode() {
-    return Fn(() => {
+    return Fn((builder: any) => {
+      // vegetation provides per-vertex aerial perspective (lighting/vertex-lighting.ts)
+      if (usesVertexLighting(builder)) return vec4(output.rgb.mul(vlApT()).add(vlApS()), output.a);
       const ap = this.aerialPerspective(positionWorld, screenUV);
       return vec4(output.rgb.mul(ap.T).add(ap.S), output.a);
     })();

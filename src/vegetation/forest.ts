@@ -33,6 +33,7 @@ export const forestSettings = settings.group('forest', 'Forêt', {
   wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
   debugDraw: { value: 'all', options: { Tout: 'all', 'Maillages seuls': 'meshes', 'Imposteurs seuls': 'impostors', 'Aucun (compute seul)': 'none' }, label: 'Debug dessin' },
   debugFlatImpostors: { value: false, label: 'Debug imposteurs unis', hidden: true },
+  debugMeshShading: { value: 'full', options: { full: 'full', noShadow: 'noShadow', noFog: 'noFog', basic: 'basic' }, label: 'Debug shading maillages', hidden: true },
   impostorBlendDistance: { value: 300, min: 0, max: 5000, step: 50, label: 'Imposteurs: fondu 4 vues jusqu\'à (m)' },
   impostorStochastic: { value: true, label: 'Imposteurs: vue stochastique au-delà' },
   impostorEarlyDiscard: { value: true, label: 'Imposteurs: rejet anticipé', hidden: true },
@@ -493,6 +494,7 @@ export class Forest implements System {
     })().compute(NLIST).setName('forestReset');
   }
   private reset!: THREE.ComputeNode;
+  private lastMeshShading = 'full';
 
   update(_ctx: FrameContext) {
     const s = forestSettings;
@@ -500,6 +502,15 @@ export class Forest implements System {
     sunUniforms.dir.value.copy(this.atmosphere.sunLight.position).sub(this.atmosphere.sunLight.target.position).normalize();
     sunUniforms.color.value.copy(this.atmosphere.sunLight.color).multiplyScalar(this.atmosphere.sunLight.intensity);
     if (!s.enabled) return;
+    if (this.lastMeshShading !== s.debugMeshShading) {
+      this.lastMeshShading = s.debugMeshShading;
+      for (const d of this.draws) {
+        if (d.list >= 2 * NV || d.mesh.userData.pass === 'shadow') continue;
+        d.mesh.receiveShadow = s.debugMeshShading !== 'noShadow' && s.debugMeshShading !== 'basic';
+        (d.mesh.material as any).fog = s.debugMeshShading !== 'noFog' && s.debugMeshShading !== 'basic';
+        (d.mesh.material as THREE.Material).needsUpdate = true;
+      }
+    }
     for (const d of this.draws) {
       const isImp = d.list >= 2 * NV;
       if (isImp && d.mesh.userData.pass === 'color') d.mesh.material = s.debugFlatImpostors ? this.impostorFlatMaterial : this.impostorMaterial;

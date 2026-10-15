@@ -65,7 +65,7 @@ export class Post implements System {
         const c = sceneColor.sample(uv());
         const cl = cloudTex.sample(uv());
         return vec4(c.rgb.mul(cl.a).add(cl.rgb), 1);
-      })(), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
+      })(), null, null, { type: THREE.UnsignedInt101111Type, format: THREE.RGBFormat, depthBuffer: false });
       comp.setResolutionScale(renderSettings.resolutionScale);
       color = comp;
       const resize = () => {
@@ -81,8 +81,9 @@ export class Post implements System {
     this.uSharpen.value = postSettings.sharpen;
     // bloom + lens flare computed at internal resolution from the scene colour, added in the final pass
     const bloomNode: any = bloom(color, postSettings.bloom, 0.5, postSettings.bloomThreshold);
+    bloomNode.setResolutionScale(0.25); // relative to the output: a soft glow does not need more
     const uFlare = uniform(postSettings.lensflare);
-    const flareNode: any = lensflare(bloomNode, { threshold: uniform(0.35), ghostAttenuationFactor: uniform(28), ghostSpacing: uniform(0.22), ghostTint: vec3(0.55, 0.75, 1.0) });
+    const flareNode: any = lensflare(bloomNode, { threshold: uniform(0.35), ghostAttenuationFactor: uniform(28), ghostSpacing: uniform(0.22), ghostTint: vec3(0.55, 0.75, 1.0), downSampleRatio: 6 });
     this.liteOut = this.liteNode.sharpened(this.uSharpen).add(bloomNode).add(flareNode.mul(uFlare));
     settings.on('post.bloom', (v) => (bloomNode.strength.value = v));
     settings.on('post.bloomThreshold', (v) => (bloomNode.threshold.value = v));

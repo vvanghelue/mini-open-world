@@ -16,6 +16,7 @@ import { Clouds } from './sky/clouds';
 import { TerrainShadows } from './lighting/terrain-shadows';
 import { setupSunShadows } from './lighting/sun-shadows';
 import { SkyVisibility } from './lighting/sky-visibility';
+import { lightingHooks } from './lighting/vertex-lighting';
 import { Forest } from './vegetation/forest';
 import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
@@ -63,6 +64,9 @@ async function main() {
   setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
   terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
+  lightingHooks.sunVisibilityAt = (p) => terrainShadows.visibilityAt(p).mul(clouds.shadowAt(p));
+  lightingHooks.apAt = (p, suv) => atmosphere.aerialPerspective(p, suv);
+  lightingHooks.skyVisAt = (xz) => skyVisibility.visibility(xz);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
 
   // Initial view: above Wengen, looking at the Jungfrau.

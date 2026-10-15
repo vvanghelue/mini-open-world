@@ -3,6 +3,7 @@
 import * as THREE from 'three/webgpu';
 import { Fn, float, uniform, mix, positionWorld } from 'three/tsl';
 import type { Clouds } from '../sky/clouds';
+import { usesVertexLighting, vlSunVis } from './vertex-lighting';
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { settings } from '../core/settings';
 import type { TerrainShadows } from './terrain-shadows';
@@ -27,10 +28,13 @@ export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.Direc
   const csm = new CSMShadowNode(sun, { cascades: 2, maxFar: sunShadowSettings.distance, mode: 'practical', lightMargin: 200 });
   csm.fade = true;
   const uCSM = uniform(sunShadowSettings.enabled ? 1 : 0);
-  const combined = Fn(() => {
+  const combined = Fn((builder: any) => {
+    const near = mix(float(1), (csm as any).x, uCSM);
+    // vegetation evaluates heightfield + cloud visibility per vertex (see lighting/vertex-lighting.ts)
+    if (usesVertexLighting(builder)) return near.mul(vlSunVis());
     const hf = terrainShadows.shadowNode;
     const cl = clouds ? clouds.shadowAt(positionWorld) : float(1);
-    return mix(float(1), (csm as any).x, uCSM).mul(hf).mul(cl);
+    return near.mul(hf).mul(cl);
   })();
   (sun.shadow as any).shadowNode = combined;
   settings.on('sunShadows.enabled', (v) => {

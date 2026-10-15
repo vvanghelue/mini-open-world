@@ -13,7 +13,7 @@ import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
 import type { Terrain } from '../terrain/terrain';
 import { windUniforms, sunUniforms } from './tree-materials';
-import { skyVisAt } from '../terrain/terrain-material';
+import { makeVertexLighting } from '../lighting/vertex-lighting';
 
 export const grassSettings = settings.group('grass', 'Herbe', {
   enabled: { value: true, label: 'Herbe 3D' },
@@ -109,6 +109,8 @@ export class Grass implements System {
     const b = attribute('blade', 'vec3');
     const vColor = varying(vec3(0), 'grassColor');
     const vH = varying(float(0), 'grassH');
+    const vl = makeVertexLighting('grass');
+    m.userData.vertexLighting = true;
     m.positionNode = Fn(() => {
       const scale = d0.w; // height scale (0 = hidden)
       const rot = d1.x;
@@ -128,12 +130,15 @@ export class Grass implements System {
       const offs = vec3(windUniforms.dir.x.mul(sway), sway.mul(-0.3), windUniforms.dir.y.mul(sway));
       vColor.assign(vec3(fractUnpack(d1.w, 0), fractUnpack(d1.w, 1), fractUnpack(d1.w, 2)));
       vH.assign(h);
-      return local.add(offs).add(d0.xyz);
+      const world = local.add(offs).add(d0.xyz).toVar();
+      vl.vertex(world);
+      return world;
     })();
     // soft lighting: mostly up-facing normals (grass reads like a lit carpet), slight blade normal
     m.normalNode = transformNormalToView(normalize(vec3(0, 1, 0)));
-    m.aoNode = Fn(() => skyVisAt(positionWorld.xz))();
+    m.aoNode = vl.skyVis;
     m.colorNode = Fn(() => {
+      vl.fragment();
       const root = mix(float(0.45), float(1.0), pow(vH, 0.8));
       return vec4(vColor.mul(root), 1);
     })();

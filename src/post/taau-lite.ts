@@ -57,7 +57,8 @@ export class TAAULiteNode extends THREE.TempNode {
     this.depthNode = depthNode;
     this.camera = camera;
     this.updateBeforeType = THREE.NodeUpdateType.FRAME;
-    const mk = () => new THREE.RenderTarget(1, 1, { depthBuffer: false, type: THREE.HalfFloatType });
+    // packed HDR history (rg11b10ufloat, 4 bytes/pixel): halves the bandwidth of the full-resolution passes
+    const mk = () => new THREE.RenderTarget(1, 1, { depthBuffer: false, type: THREE.UnsignedInt101111Type, format: THREE.RGBFormat });
     this.history = [mk(), mk()];
     this.historyTex = texture(this.history[0].texture);
     this.outputTex = passTexture(this as any, this.history[1].texture);

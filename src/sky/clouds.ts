@@ -5,9 +5,9 @@
 // depth. The result is composited over the scene (scene * T + L) before the temporal upscaler.
 import * as THREE from 'three/webgpu';
 import {
-  Fn, uniform, vec2, vec3, vec4, float, int, uvec3, instanceIndex, textureStore, texture3D, Loop, If, Break, max, min,
+  Fn, uniform, vec2, vec3, vec4, float, int, uvec2, uvec3, instanceIndex, textureStore, texture3D, Loop, If, Break, max, min,
   clamp, mix, smoothstep, exp, dot, normalize, length, floor, fract, sin, abs, uv, cameraPosition, cameraProjectionMatrixInverse,
-  cameraWorldMatrix, interleavedGradientNoise, screenCoordinate, time, pow, sqrt,
+  cameraWorldMatrix, interleavedGradientNoise, screenCoordinate, time, pow, sqrt, texture,
 } from 'three/tsl';
 import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
@@ -26,6 +26,7 @@ export const cloudSettings = settings.group('clouds', 'Nuages', {
 });
 
 const N3 = 64;
+const WEATHER_TILE = 36000; // metres covered by one tile of the weather map
 
 /** Cheap periodic 2D value noise (ALU only, no texture): usable in any shader without a sampler. */
 export const valueNoise2 = Fn(([p]) => {
@@ -55,8 +56,18 @@ export class Clouds implements System {
 
   constructor(private atmosphere: Atmosphere) {}
 
+  /** Tileable 2D weather map (fbm, 512^2 covering WEATHER_TILE metres), baked once; coverage threshold at runtime. */
+  weather!: THREE.StorageTexture;
+
   init(engine: Engine) {
     this.engine = engine;
+    this.weather = new THREE.StorageTexture(512, 512);
+    this.weather.type = THREE.HalfFloatType;
+    this.weather.format = THREE.RGBAFormat;
+    this.weather.wrapS = this.weather.wrapT = THREE.RepeatWrapping;
+    this.weather.minFilter = this.weather.magFilter = THREE.LinearFilter;
+    this.weather.generateMipmaps = false;
+    engine.renderer.compute(this.buildWeather());
     this.noise = new THREE.Storage3DTexture(N3, N3, N3);
     this.noise.format = THREE.RGBAFormat;
     this.noise.type = THREE.UnsignedByteType;
@@ -106,11 +117,30 @@ export class Clouds implements System {
     })().compute(N3 * N3 * N3).setName('cloudNoise');
   }
 
-  /** TSL: coverage (weather map) at world xz. */
+  private buildWeather() {
+    // periodic value-noise fbm: cells wrap at the tile size so the texture tiles seamlessly
+    const hash2 = (c) => fract(sin(dot(c, vec2(127.1, 311.7))).mul(43758.5453));
+    const pnoise = (p, cells: number) => {
+      const q = p.mul(cells);
+      const i = floor(q);
+      const f = fract(q);
+      const u = f.mul(f).mul(float(3).sub(f.mul(2)));
+      const h = (o) => hash2(i.add(o).add(cells).mod(cells));
+      return mix(mix(h(vec2(0, 0)), h(vec2(1, 0)), u.x), mix(h(vec2(0, 1)), h(vec2(1, 1)), u.x), u.y);
+    };
+    return Fn(() => {
+      const x = instanceIndex.mod(512);
+      const y = instanceIndex.div(512);
+      const p = vec2(float(x), float(y)).add(0.5).div(512);
+      const n = pnoise(p, 4).mul(0.5).add(pnoise(p, 9).mul(0.28)).add(pnoise(p, 21).mul(0.15)).add(pnoise(p, 47).mul(0.07));
+      textureStore(this.weather, uvec2(x, y), vec4(n, 0, 0, 1)).toWriteOnly();
+    })().compute(512 * 512).setName('cloudWeather');
+  }
+
+  /** TSL: coverage (weather map) at world xz — one texture sample. */
   coverage(xz) {
-    const p = xz.add(this.uWind).div(9000);
-    const n = valueNoise2(p).mul(0.55).add(valueNoise2(p.mul(2.7).add(13.1)).mul(0.3)).add(valueNoise2(p.mul(7.3).add(5.7)).mul(0.15));
-    return smoothstep(float(1).sub(this.uCoverage), float(1).sub(this.uCoverage).add(0.28), n);
+    const n = texture(this.weather, xz.add(this.uWind).div(WEATHER_TILE)).level(float(0)).r;
+    return smoothstep(float(1).sub(this.uCoverage), float(1).sub(this.uCoverage).add(0.25), n);
   }
 
   private density(p) {
@@ -125,6 +155,17 @@ export class Clouds implements System {
     const detail = texture3D(this.noise, q.div(600).add(vec3(0.3, time.mul(0.002), 0.7)), float(0)).g;
     const d = clamp(shape.sub(float(1).sub(detail).mul(0.35).mul(float(1).sub(shape))), 0, 1);
     return d.mul(this.uDensity);
+  }
+
+  /** cheaper density for light marching: coverage x profile x shape, no detail erosion */
+  private densityCoarse(p) {
+    const hf = clamp(p.y.sub(this.uBase).div(this.uThickness), 0, 1);
+    const cov = this.coverage(p.xz);
+    const top = mix(float(0.45), float(1), cov);
+    const profile = smoothstep(0, 0.08, hf).mul(float(1).sub(smoothstep(top.mul(0.55), top, hf)));
+    const q = vec3(p.x.add(this.uWind.x), p.y, p.z.add(this.uWind.y));
+    const n = texture3D(this.noise, q.div(2600), float(0)).r;
+    return clamp(n.sub(float(1).sub(cov.mul(profile))).div(cov.mul(profile).max(0.02)), 0, 1).mul(this.uDensity);
   }
 
   /** TSL: sun transmittance through the cloud layer for a world position (cheap, for the shadow node). */
@@ -176,17 +217,20 @@ export class Clouds implements System {
           Loop({ start: 0, end: 64, name: 'ci' } as any, ({ ci }) => {
             If(int(ci).greaterThanEqual(int(steps)).or(t.greaterThan(t1)).or(T.lessThan(0.02)), () => Break());
             const p = ro.add(dir.mul(t));
-            const dens = this.density(p).toVar();
+            const dens = float(0).toVar();
+            If(this.coverage(p.xz).greaterThan(0.001), () => {
+              dens.assign(this.density(p));
+            });
             If(dens.greaterThan(0.0001), () => {
               If(firstHit.lessThan(0), () => firstHit.assign(t));
               // short light march towards the sun
               const od = float(0).toVar();
               const ls = float(90).toVar();
               const lp = p.toVar();
-              Loop({ start: 0, end: 4, name: 'li' } as any, () => {
+              Loop({ start: 0, end: 3, name: 'li' } as any, () => {
                 lp.addAssign(this.uSunDir.mul(ls));
-                od.addAssign(this.density(lp).mul(ls));
-                ls.mulAssign(1.9);
+                od.addAssign(this.densityCoarse(lp).mul(ls));
+                ls.mulAssign(2.2);
               });
               const Tl = exp(od.negate());
               const powder = float(1).sub(exp(od.mul(-2).sub(dens.mul(dt))));

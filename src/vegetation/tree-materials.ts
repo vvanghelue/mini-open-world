@@ -9,6 +9,9 @@
 // coverage); TAA jitter turns the dither into a smooth blend.
 import * as THREE from 'three/webgpu';
 import { skyVisAt } from '../terrain/terrain-material';
+import { makeVertexLighting } from '../lighting/vertex-lighting';
+
+let matId = 0;
 import {
   Fn, texture, uniform, vec3, vec4, float, attribute, positionLocal, normalLocal, sin, time, mix, pow, clamp, dot,
   normalize, positionWorld, cameraPosition, uv, normalMap, transformNormalToView, interleavedGradientNoise,
@@ -52,6 +55,8 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   const vdata = attribute('vdata', 'vec4');
   const uTint = uniform(tint);
   const seed = xf ? xf.seed : float(0.5);
+  const vl = xf ? makeVertexLighting(`fol${matId++}`) : null;
+  if (vl) m.userData.vertexLighting = true;
 
   // wind: whole-tree sway grows with height^2, branch flutter grows with flex
   m.positionNode = Fn(() => {
@@ -62,13 +67,17 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
     const flutter = sin(t.mul(4.3).add(vdata.z).add(p.x.mul(0.7))).mul(0.05).mul(vdata.y);
     const d = windUniforms.dir;
     const local = p.add(vec3(d.x.mul(sway.add(flutter)), flutter.mul(0.4), d.y.mul(sway.add(flutter))).mul(windUniforms.strength));
-    return xf ? xf.position(local) : local;
+    if (!xf) return local;
+    const world = xf.position(local).toVar();
+    vl!.vertex(world);
+    return world;
   })();
   if (xf) m.normalNode = transformNormalToView(normalize(xf.normal(normalLocal)));
 
   const tex = texture(tx.twigAlbedo, uv());
   const ao = vdata.x;
   m.colorNode = Fn(() => {
+    vl?.fragment();
     const variation = mix(float(0.88), float(1.12), seed);
     return vec4(tex.rgb.mul(uTint).mul(variation).mul(mix(float(0.55), float(1), ao)), 1);
   })();
@@ -76,7 +85,7 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
   m.alphaTest = 0.45;
   // the shadow pass ignores opacityNode: cut the cards out explicitly
   (m as any).maskShadowNode = tex.a.greaterThan(0.45);
-  m.aoNode = Fn(() => mix(float(0.5), float(1), ao).mul(skyVisAt(positionWorld.xz)))();
+  m.aoNode = Fn(() => mix(float(0.5), float(1), ao).mul(vl ? vl.skyVis : skyVisAt(positionWorld.xz)))();
 
   // back-lit translucency (light through needles when looking towards the sun)
   if (xf) {
@@ -91,15 +100,25 @@ export function makeFoliageMaterial(tx: TreeTextures, xf: InstanceXform | null, 
 
 export function makeBarkMaterial(tx: TreeTextures, xf: InstanceXform | null) {
   const m = new THREE.MeshStandardNodeMaterial();
+  const vl = xf ? makeVertexLighting(`bark${matId++}`) : null;
   if (xf) {
-    m.positionNode = xf.position(positionLocal);
+    m.userData.vertexLighting = true;
+    m.positionNode = Fn(() => {
+      const world = xf.position(positionLocal).toVar();
+      vl!.vertex(world);
+      return world;
+    })();
     m.normalNode = transformNormalToView(normalize(xf.normal(normalLocal)));
     m.opacityNode = fadeVisible(xf.fade);
     m.alphaTest = 0.5;
+    m.aoNode = vl!.skyVis;
   } else {
     m.normalNode = normalMap(texture(tx.barkNormal, uv()));
   }
-  m.colorNode = texture(tx.barkAlbedo, uv()).rgb.mul(0.85);
+  m.colorNode = Fn(() => {
+    vl?.fragment();
+    return texture(tx.barkAlbedo, uv()).rgb.mul(0.85);
+  })();
   m.roughnessNode = float(0.9);
   m.metalnessNode = float(0);
   return m;
