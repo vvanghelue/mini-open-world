@@ -17,7 +17,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   road distances, terrain LOD, cloud and reflection steps, distant forest density (`qualityScaled()`) and alternates
   the shadow cascades. Third (last) stage: output canvas at 80 % then 65 % (`adaptive.outputScale`, each step held
   >= 30 s; at 2560x1440 the output-size passes dominate the floor). Bench column `out80%` = time with reduced output.
-  `ab.mjs` alternates the variant order between rounds (heat drift within a round). Restored in
+  `ab.mjs` alternates the variant order between rounds (heat drift within a round). Urgency mode (p90 > 1.3 x target:
+  0.4 s decisions, double detail steps, no effectiveness check) reaches the floor in ~3 s after a load or teleport. Restored in
   reverse order. `render.forceDetail` (hidden) pins the detail level for A/B. HUD shows all three.
   Vsync detection = quantised intervals (multiples of the display period). Validate governor changes in a VISIBLE
   capped Chrome (`run.mjs --headful --capped --width=1470 --height=830`): headless vsync has no display jitter and hid
