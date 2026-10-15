@@ -37,6 +37,7 @@ export class DynamicResolution {
 
   constructor(private apply: (scale: number) => void, private applyOutput: (factor: number) => void = () => {}) {}
   outputScale = 1;
+  private outputSince = -1e9;
 
   /** Resets to the user's maximum scale (settings changed, dynamic resolution toggled). */
   reset() {
@@ -44,6 +45,7 @@ export class DynamicResolution {
     this.cleanTime = 0;
     this.qTarget = 1;
     if (this.outputScale !== 1) this.applyOutput((this.outputScale = 1));
+    this.outputSince = -1e9;
     this.probe = null;
     this.resBlockedUntil = -1;
     this.set(renderSettings.resolutionScale);
@@ -67,6 +69,7 @@ export class DynamicResolution {
       this.samples.length = 0;
     } else if (this.state.quality < 0.02 && this.outputScale === 1) {
       this.applyOutput((this.outputScale = 0.8));
+      this.outputSince = this.clock;
       this.sinceChange = 0;
       this.samples.length = 0;
     }
@@ -74,9 +77,12 @@ export class DynamicResolution {
     this.cleanTime = 0;
   }
 
-  /** Headroom: restore the detail level first, then the resolution. */
-  private improve() {
+  /** Headroom: restore the output size first, then the detail level, then the resolution.
+   *  `load` = p90 / target (0 when unknown). The output stage changes the canvas size (one slow frame) and nearly
+   *  halves the output cost, so it is held for 30 s and restored only with a large margin (no oscillation). */
+  private improve(load = 0) {
     if (this.outputScale !== 1) {
+      if (this.clock - this.outputSince < 30 || load > 0.62) return;
       this.applyOutput((this.outputScale = 1));
       this.sinceChange = 0;
       this.samples.length = 0;
@@ -181,7 +187,7 @@ export class DynamicResolution {
     } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
-      if (this.cleanTime > (this.clock - this.lastDrop < 10 ? 2.5 : 1)) this.improve();
+      if (this.cleanTime > (this.clock - this.lastDrop < 10 ? 2.5 : 1)) this.improve(p90 / target);
     } else {
       this.cleanTime = 0;
     }
