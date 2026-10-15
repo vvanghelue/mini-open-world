@@ -29,6 +29,7 @@ export class DynamicResolution {
   private uncappedVotes = 0;
   private probe: { from: number; metric: number } | null = null; // pending check of the last resolution drop
   private resBlockedUntil = -1;
+  private probeStrikes = 0; // consecutive ineffective resolution drops
   private samples: number[] = [];
   private sinceChange = 0;
   private cleanTime = 0;
@@ -48,6 +49,7 @@ export class DynamicResolution {
     this.outputSince = -1e9;
     this.probe = null;
     this.resBlockedUntil = -1;
+    this.probeStrikes = 0;
     this.set(renderSettings.resolutionScale);
   }
 
@@ -57,7 +59,8 @@ export class DynamicResolution {
   }
 
   /** Over budget: lower the resolution (if that lever works here), else the detail level.
-   *  `metric` = what the drop should reduce (p90 uncapped, missed frames capped), checked at the next evaluation. */
+   *  `metric` = what the drop should reduce (trimmed mean uncapped, missed frames capped), checked at the next
+   *  evaluation. */
   private degrade(scaleTarget: number, metric: number) {
     if (!this.atFloor() && this.clock >= this.resBlockedUntil) {
       const from = this.state.scale;
@@ -128,6 +131,12 @@ export class DynamicResolution {
     const sorted = [...this.samples].sort((a, b) => a - b);
     const med = sorted[WINDOW >> 1];
     const p10 = sorted[Math.floor(WINDOW * 0.1)], p90 = sorted[Math.floor(WINDOW * 0.9)];
+    // trimmed mean (slowest 10 % excluded): stable from window to window, and ignores the one slow frame that a
+    // resolution change itself causes (render target reallocation)
+    let tm = 0;
+    const keep = Math.floor(WINDOW * 0.9);
+    for (let i = 0; i < keep; i++) tm += sorted[i];
+    tm /= keep;
     // vsync lock: frame intervals are quantised to multiples of the display period (60/72/90/120/144 Hz), with
     // 1-2 ms of jitter on real displays; uncapped intervals are continuous. Enter when the median sits on a period
     // and nearly all intervals are quantised; leave after repeated evidence of continuous intervals. Frames that
@@ -150,12 +159,15 @@ export class DynamicResolution {
       this.probe = null;
       const ineffective = this.state.capped
         ? misses(this.samples, this.state.period) >= pr.metric * 0.7
-        : pr.metric - p90 < Math.max(0.25, pr.metric * 0.04);
+        : pr.metric - tm < Math.max(0.12, pr.metric * 0.02);
       if (ineffective) {
-        this.resBlockedUntil = this.clock + 20;
+        // first strike: short block (could be noise); repeated: the view is not pixel-bound, use the detail level
+        this.probeStrikes++;
+        this.resBlockedUntil = this.clock + (this.probeStrikes >= 2 ? 30 : 8);
         this.set(pr.from);
         return;
       }
+      this.probeStrikes = 0;
     }
     const s = this.state.scale;
     const max = renderSettings.resolutionScale;
@@ -183,7 +195,7 @@ export class DynamicResolution {
       // proportional step (pixel cost ~ scale^2), at least one step
       const k = Math.sqrt(target / p90);
       // while the detail level is still gliding down, give it time before another step
-      if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(s * (0.15 + 0.85 * k), p90);
+      if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(s * (0.15 + 0.85 * k), tm);
     } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1 || this.outputScale !== 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
