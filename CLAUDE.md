@@ -20,6 +20,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   a bug that dropped quality to the minimum at a steady 60 fps.
 - Background system load (Spotlight `mds_stores`, `mediaanalysisd` indexing new screenshots) can double frame times:
   check `node tools/dev/minimal-probe.mjs` (empty page ≈ 0.45 ms, few spikes) before trusting absolute numbers.
+  `screenshots` is a symlink to `screenshots.noindex/` (Spotlight skips `.noindex` folders) so test screenshots do
+  not trigger indexing.
 - The in-app browser pane and normal Chrome are vsync-capped (60 fps max): never use them for perf numbers.
   `npm run uncapped` opens a separate Chrome without the cap (lets the user see real fps).
 - GPU timestamp queries are unusable on Apple (`?gpuTiming` gives nonsense). `queue.onSubmittedWorkDone` latency

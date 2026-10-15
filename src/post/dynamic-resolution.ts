@@ -135,13 +135,14 @@ export class DynamicResolution {
     }
 
     // uncapped: frame interval = frame cost
-    const target = 1000 / renderSettings.targetFps;
+    // aim below the budget: the p90 at 90 % of it keeps the tail of the distribution (p99) under the budget
+    const target = (1000 / renderSettings.targetFps) * 0.9;
     if (p90 > target * 1.02) {
       // proportional step (pixel cost ~ scale^2), at least one step
       const k = Math.sqrt(target / p90);
       // while the detail level is still gliding down, give it time before another step
       if (Math.abs(this.state.quality - this.qTarget) < 0.05) this.degrade(Math.min(s - STEP, s * (0.15 + 0.85 * k)));
-    } else if (p90 < target * 0.82 && (s < max || this.qTarget < 1)) {
+    } else if (p90 < target * 0.8 && (s < max || this.qTarget < 1)) {
       this.cleanTime += this.sinceChange;
       this.sinceChange = 0;
       if (this.cleanTime > (this.clock - this.lastDrop < 10 ? 2.5 : 1)) this.improve();
