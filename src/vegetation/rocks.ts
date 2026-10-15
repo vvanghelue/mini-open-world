@@ -17,6 +17,7 @@ import type { Terrain } from '../terrain/terrain';
 import { skyVisAt, terrainHooks } from '../terrain/terrain-material';
 import { worldColliders } from '../world/colliders';
 import { qualityScaled } from '../core/adaptive';
+import { freezeStatic } from '../core/static';
 
 export const rockSettings = settings.group('rocks', 'Rochers', {
   enabled: { value: true, label: 'Rochers et blocs' },
@@ -139,6 +140,7 @@ export class Rocks implements System {
       mesh.receiveShadow = true;
       mesh.name = `rocks${v}`;
       engine.scene.add(mesh);
+      freezeStatic(mesh);
       this.meshes.push(mesh);
     }
     this.buildComputes();

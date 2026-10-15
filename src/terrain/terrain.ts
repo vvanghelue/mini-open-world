@@ -11,6 +11,7 @@ import { TerrainData, CORE_BLEND } from './terrain-data';
 import { CdlodSelector, PATCH_N, MAX_PATCHES } from './cdlod';
 import { loadTerrainTextures, TerrainTextures } from './terrain-textures';
 import { applyTerrainMaterial } from './terrain-material';
+import { freezeStatic } from '../core/static';
 
 export const terrainSettings = settings.group('terrain', 'Terrain', {
   lodDistance: { value: 260, min: 150, max: 800, step: 10, label: 'Distance de détail (m)', help: 'Portée du niveau de détail le plus fin ; chaque niveau suivant double.' },
@@ -186,6 +187,7 @@ export class Terrain implements System {
       mesh.castShadow = false;
       mesh.name = 'terrain';
       engine.scene.add(mesh);
+      freezeStatic(mesh);
     }
 
     settings.on('terrain.lodDistance', (v) => (this.uLodDistance.value = v as number));

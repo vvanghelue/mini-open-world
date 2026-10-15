@@ -15,6 +15,7 @@ import type { Terrain } from '../terrain/terrain';
 import { windUniforms, sunUniforms } from './tree-materials';
 import { makeVertexLighting } from '../lighting/vertex-lighting';
 import { qualityScaled } from '../core/adaptive';
+import { freezeStatic } from '../core/static';
 
 export const grassSettings = settings.group('grass', 'Herbe', {
   enabled: { value: true, label: 'Herbe 3D' },
@@ -62,6 +63,7 @@ export class Grass implements System {
     this.mesh.castShadow = false;
     this.mesh.name = 'grass';
     engine.scene.add(this.mesh);
+    freezeStatic(this.mesh);
     this.buildComputes();
     settings.on('grass.enabled', (v) => (this.mesh.visible = v as boolean), true);
   }

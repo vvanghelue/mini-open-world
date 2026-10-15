@@ -9,6 +9,7 @@ import type { Engine, System } from '../core/engine';
 import type { Terrain } from '../terrain/terrain';
 import { lv95ToWorld } from './geo';
 import { skyVisAt } from '../terrain/terrain-material';
+import { freezeStatic } from '../core/static';
 
 // SW threshold -> NE threshold (LV95, measured on SWISSIMAGE), width in metres
 const RUNWAY = { e0: 2633155, n0: 1169038, e1: 2634385, n1: 1170283, width: 30 };
@@ -88,6 +89,7 @@ export class Airfield implements System {
     mesh.renderOrder = 1;
     g.computeBoundingSphere();
     engine.scene.add(mesh);
+    freezeStatic(mesh);
     void max;
   }
 }

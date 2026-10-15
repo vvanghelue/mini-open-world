@@ -12,6 +12,7 @@ import type { Engine, System, FrameContext } from '../core/engine';
 import type { Terrain } from '../terrain/terrain';
 import { settings } from '../core/settings';
 import { skyVisAt } from '../terrain/terrain-material';
+import { freezeStatic } from '../core/static';
 
 export const roadSettings = settings.group('roads', 'Routes et sentiers', {
   enabled: { value: true, label: 'Routes et sentiers (OSM)' },
@@ -91,6 +92,7 @@ export class Roads implements System {
     }
     this.group.name = 'roads';
     engine.scene.add(this.group);
+    freezeStatic(this.group);
     settings.on('roads.enabled', (v) => (this.group.visible = v as boolean), true);
   }
 

@@ -14,6 +14,7 @@ import type { TimeOfDay } from '../sky/time-of-day';
 import { settings } from '../core/settings';
 import { skyVisAt, terrainHooks } from '../terrain/terrain-material';
 import { worldColliders } from './colliders';
+import { freezeStatic } from '../core/static';
 
 export const buildingSettings = settings.group('buildings', 'Bâtiments', {
   enabled: { value: true, label: 'Bâtiments (OpenStreetMap)' },
@@ -93,6 +94,7 @@ export class Buildings implements System {
     }
     this.group.name = 'buildings';
     engine.scene.add(this.group);
+    freezeStatic(this.group);
     await this.loadFootprints(base + 'footprints.bin');
     settings.on('buildings.enabled', (v) => (this.group.visible = v as boolean), true);
   }

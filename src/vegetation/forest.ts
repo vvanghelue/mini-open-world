@@ -23,6 +23,7 @@ import { bakeImpostors, impostorShaderParts, ImpostorAtlas, IMP_N, IMP_COLS } fr
 import { registerCommand } from '../agent/bridge';
 import { qualityScaled } from '../core/adaptive';
 import { lightingHooks } from '../lighting/vertex-lighting';
+import { freezeStatic } from '../core/static';
 
 export const forestSettings = settings.group('forest', 'Forêt', {
   enabled: { value: true, label: 'Arbres' },
@@ -222,6 +223,7 @@ export class Forest implements System {
     }
     this.group.name = 'forest';
     engine.scene.add(this.group);
+    freezeStatic(this.group);
 
     this.buildComputes();
     settings.on('forest.enabled', (v) => (this.group.visible = v as boolean), true);
