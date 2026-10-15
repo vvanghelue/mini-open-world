@@ -58,12 +58,12 @@ export function makeTerrainReflection(terrain: Terrain, atmosphere: Atmosphere, 
     return mix(mix(a, b, f.x), mix(c, e, f.x), f.y);
   };
   const cw = terrain.coreWeightNode;
-  // nearest heights while marching (one fetch: core inside its square, far ring outside), bilinear for the
-  // refinement (smooth silhouettes)
+  // marching: one grid per sample (core inside its square, far ring outside); bilinear for the refinement
   const coreHalf = m.core.size / 2 - 64;
   const height = (xz: any) => {
     const h = float(0).toVar();
-    If(max(xz.x.abs(), xz.y.abs()).lessThan(coreHalf), () => h.assign(load(hCore, xz).r)).Else(() => h.assign(load(hFar, xz).r));
+    // far ring (40 m texels): bilinear, nearest shows as stair-steps along reflected ridgelines
+    If(max(xz.x.abs(), xz.y.abs()).lessThan(coreHalf), () => h.assign(load(hCore, xz).r)).Else(() => h.assign(bilinear(hFar, xz)));
     return h;
   };
   const heightSmooth = (xz: any) => mix(bilinear(hFar, xz), bilinear(hCore, xz), cw(xz));
