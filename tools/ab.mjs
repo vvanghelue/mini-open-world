@@ -39,6 +39,7 @@ try {
   // warm-up run (shader compilation, JIT, GPU clocks)
   await page.evaluate((p, range) => window.agent.run('bench', { paths: [p], seconds: 3, warmup: 1, range }), pathName, range);
   const results = variants.map(() => []);
+  const p95s = variants.map(() => []);
   for (let r = 0; r < rounds; r++) {
     // odd rounds run the variants in reverse order: heat building up within a round no longer biases the later ones
     const order = variants.map((_, i) => i);
@@ -52,6 +53,7 @@ try {
         return out[p].frameMs;
       }, defaults, parse(variants[i]), pathName, seconds, range, !!opts.dyn);
       results[i].push(res.mean);
+      p95s[i].push(res.p95);
     }
   }
   const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
@@ -60,7 +62,7 @@ try {
   console.log(`path=${pathName} ${width}x${height} rounds=${rounds} seconds=${seconds}`);
   variants.forEach((v, i) => {
     const m = mean(results[i]);
-    console.log(`${m.toFixed(2).padStart(6)} ms ±${sd(results[i]).toFixed(2)}  ${i ? ((m - base >= 0 ? '+' : '') + (m - base).toFixed(2)).padStart(6) : '  base'}  ${v}  [${results[i].map((x) => x.toFixed(2)).join(' ')}]`);
+    console.log(`${m.toFixed(2).padStart(6)} ms ±${sd(results[i]).toFixed(2)}  ${i ? ((m - base >= 0 ? '+' : '') + (m - base).toFixed(2)).padStart(6) : '  base'}  p95 ${mean(p95s[i]).toFixed(1).padStart(4)}  ${v}  [${results[i].map((x) => x.toFixed(2)).join(' ')}]`);
   });
 } finally {
   await browser.close();

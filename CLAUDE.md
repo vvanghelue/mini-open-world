@@ -51,6 +51,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   lazily compiled compute pipelines (85 ms freeze on the GI's first re-bake: now pre-compiled at init) and one
   submit per dispatch (grass/rocks/forest computes now one `renderer.compute([...])` each). Compile every compute
   pipeline at init; batch dispatches of a system into one compute() call.
+- Ruled out as slow-frame causes (measured): GC (no overlap), progressive shadow / GI re-bakes (sun frozen: same p95),
+  per-frame allocations (154 KB/frame, 87 % inside three.js). Real-window lake p95 is ~7 ms cool, ~10 ms only after
+  minutes of continuous uncapped load (heat). `ab.mjs` prints the mean p95 of each variant too.
 - Thermal throttling measured with `tools/dev/thermal.mjs`: same workload 4.5 ms cold -> 8.9 ms after 2.5 min of
   uncapped load (x1.95), back to cold speed after ~1 min of rest. Uncapped stress numbers depend on the run order.
 - Uncapped Chrome has 1–3 interval spikes > 10 ms per second even on an empty page (`tools/dev/spike-rate.mjs`):
