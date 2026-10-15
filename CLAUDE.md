@@ -15,6 +15,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   `bench` reports the mean/min scale; `ab.mjs` disables it unless `--dyn` (else it absorbs the measured difference).
   Second stage: at the resolution floor, `adaptive.quality` (core/adaptive.ts) shortens forest/grass/rock detail
   distances (`qualityScaled()`); restored first when there is headroom. HUD shows the internal res and detail level.
+  Vsync detection = quantised intervals (multiples of the display period). Validate governor changes in a VISIBLE
+  capped Chrome (`run.mjs --headful --capped --width=1470 --height=830`): headless vsync has no display jitter and hid
+  a bug that dropped quality to the minimum at a steady 60 fps.
 - Background system load (Spotlight `mds_stores`, `mediaanalysisd` indexing new screenshots) can double frame times:
   check `node tools/dev/minimal-probe.mjs` (empty page ≈ 0.45 ms, few spikes) before trusting absolute numbers.
 - The in-app browser pane and normal Chrome are vsync-capped (60 fps max): never use them for perf numbers.

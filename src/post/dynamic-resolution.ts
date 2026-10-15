@@ -22,6 +22,7 @@ const STEP = 0.025;
 export class DynamicResolution {
   readonly state: DynResState = { scale: renderSettings.resolutionScale, capped: false, period: 16.67, quality: 1 };
   private qTarget = 1;
+  private uncappedVotes = 0;
   private samples: number[] = [];
   private sinceChange = 0;
   private cleanTime = 0;
@@ -98,12 +99,22 @@ export class DynamicResolution {
     const sorted = [...this.samples].sort((a, b) => a - b);
     const med = sorted[WINDOW >> 1];
     const p10 = sorted[Math.floor(WINDOW * 0.1)], p90 = sorted[Math.floor(WINDOW * 0.9)];
-    // vsync lock: tight cluster around a common display period (60/72/90/120/144 Hz)
+    // vsync lock: frame intervals are quantised to multiples of the display period (60/72/90/120/144 Hz), with
+    // 1-2 ms of jitter on real displays; uncapped intervals are continuous. Enter when the median sits on a period
+    // and nearly all intervals are quantised; leave after repeated evidence of continuous intervals. Frames that
+    // miss vsync (2 periods) stay quantised, so the capped logic handles them (and lowers the scale).
     const periods = [16.667, 13.889, 11.111, 8.333, 6.944];
-    const near = periods.find((p) => Math.abs(med - p) < Math.max(0.25, p * 0.02));
-    const capped = near !== undefined && p90 - p10 < Math.max(0.8, near * 0.06);
-    this.state.capped = capped || (this.state.capped && near !== undefined && misses(this.samples, near) > 0);
-    if (near !== undefined) this.state.period = near;
+    const near = periods.find((p) => Math.abs(med - p) < Math.max(0.35, p * 0.03));
+    if (!this.state.capped) {
+      if (near !== undefined && quantisedShare(this.samples, near) >= 0.85) {
+        this.state.capped = true;
+        this.state.period = near;
+        this.uncappedVotes = 0;
+      }
+    } else if (quantisedShare(this.samples, this.state.period) < 0.6) {
+      if (++this.uncappedVotes >= 3) this.state.capped = false;
+    } else this.uncappedVotes = 0;
+    void p10;
     const s = this.state.scale;
     const max = renderSettings.resolutionScale;
 
@@ -117,7 +128,7 @@ export class DynamicResolution {
         this.cleanTime += this.sinceChange;
         this.sinceChange = 0;
         // raise slowly; wait longer after a recent drop (avoid oscillating around the limit)
-        const wait = this.clock - this.lastDrop < 20 ? 8 : 3;
+        const wait = this.clock - this.lastDrop < 20 ? 6 : 2;
         if ((s < max || this.qTarget < 1) && this.cleanTime > wait) this.improve();
       }
       return;
@@ -138,6 +149,16 @@ export class DynamicResolution {
       this.cleanTime = 0;
     }
   }
+}
+
+/** Share of intervals within +-12 % of a whole number (>= 1) of display periods. */
+function quantisedShare(samples: number[], period: number) {
+  let n = 0;
+  for (const v of samples) {
+    const k = Math.round(v / period);
+    if (k >= 1 && Math.abs(v / period - k) < 0.12) n++;
+  }
+  return n / samples.length;
 }
 
 function misses(samples: number[], period: number) {
