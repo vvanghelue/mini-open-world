@@ -1,7 +1,9 @@
 // Post-processing pipeline: scene pass at reduced internal resolution (MRT: color + velocity)
 // -> TAAU (temporal anti-aliasing + upscale to output resolution) -> sharpen -> tone mapping (AgX).
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, velocity, uniform, float, vec3 } from 'three/tsl';
+import { pass, mrt, output, velocity, uniform, float, vec3, vec4, rtt, uv, Fn } from 'three/tsl';
+import type { Clouds } from '../sky/clouds';
+import { cloudSettings } from '../sky/clouds';
 import { taau } from 'three/addons/tsl/display/TAAUNode.js';
 import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
 import { taauLite } from './taau-lite';
@@ -37,6 +39,8 @@ export class Post implements System {
   private liteOut: any;
   private uSharpen = uniform(0.25);
 
+  constructor(private clouds: Clouds | null = null) {}
+
   init(engine: Engine) {
     this.engine = engine;
     const r = engine.renderer;
@@ -49,12 +53,31 @@ export class Post implements System {
     scenePass.setMRT(mrt({ output, velocity }));
     this.scenePass = scenePass;
 
-    const color = scenePass.getTextureNode('output');
+    const sceneColor = scenePass.getTextureNode('output');
     const depth = scenePass.getTextureNode('depth');
     const vel = scenePass.getTextureNode('velocity');
+    // volumetric clouds at reduced resolution, composited over the scene at internal resolution
+    let color: any = sceneColor;
+    if (this.clouds) {
+      const cloudTex: any = rtt(this.clouds.marchNode(depth), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
+      cloudTex.setResolutionScale(renderSettings.resolutionScale * cloudSettings.resolution);
+      const comp: any = rtt(Fn(() => {
+        const c = sceneColor.sample(uv());
+        const cl = cloudTex.sample(uv());
+        return vec4(c.rgb.mul(cl.a).add(cl.rgb), 1);
+      })(), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
+      comp.setResolutionScale(renderSettings.resolutionScale);
+      color = comp;
+      const resize = () => {
+        cloudTex.setResolutionScale(renderSettings.resolutionScale * cloudSettings.resolution);
+        comp.setResolutionScale(renderSettings.resolutionScale);
+      };
+      settings.on('render.resolutionScale', resize);
+      settings.on('clouds.resolution', resize);
+    }
     this.taauNode = taau(color, depth, vel, engine.camera);
     this.sharpenNode = sharpen(this.taauNode.getTextureNode(), postSettings.sharpen);
-    this.liteNode = taauLite(color, vel, engine.camera);
+    this.liteNode = taauLite(color, vel, engine.camera, depth);
     this.uSharpen.value = postSettings.sharpen;
     // bloom + lens flare computed at internal resolution from the scene colour, added in the final pass
     const bloomNode: any = bloom(color, postSettings.bloom, 0.5, postSettings.bloomThreshold);

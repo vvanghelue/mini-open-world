@@ -6,7 +6,7 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn, float, vec2, vec4, ivec2, uv, uniform, texture, exp, max, min, mix, clamp, luminance, OnBeforeRenderPipeline,
-  OnAfterRenderPipeline, velocity, nodeObject, convertToTexture, passTexture, context,
+  OnAfterRenderPipeline, velocity, nodeObject, convertToTexture, passTexture, context, If,
 } from 'three/tsl';
 
 const _size = new THREE.Vector2();
@@ -43,10 +43,18 @@ export class TAAULiteNode extends THREE.TempNode {
   private needsReset = true;
   private hooked = false;
 
-  constructor(beautyNode: any, velocityNode: any, camera: THREE.Camera) {
+  depthNode: any;
+  /** maps current (unjittered) NDC of a direction at infinity to previous-frame clip space */
+  private uSkyReproj = uniform(new THREE.Matrix4());
+  private prevVP = new THREE.Matrix4();
+  private curVP = new THREE.Matrix4();
+  private havePrev = false;
+
+  constructor(beautyNode: any, velocityNode: any, camera: THREE.Camera, depthNode: any = null) {
     super('vec4');
     this.beautyNode = beautyNode;
     this.velocityNode = velocityNode;
+    this.depthNode = depthNode;
     this.camera = camera;
     this.updateBeforeType = THREE.NodeUpdateType.FRAME;
     const mk = () => new THREE.RenderTarget(1, 1, { depthBuffer: false, type: THREE.HalfFloatType });
@@ -86,6 +94,13 @@ export class TAAULiteNode extends THREE.TempNode {
     const cam = this.camera as THREE.PerspectiveCamera;
     cam.updateProjectionMatrix();
     this.originalProjection.copy(cam.projectionMatrix);
+    // sky reprojection: rotation-only view-projection (directions at infinity ignore translation)
+    const rot = new THREE.Matrix4().extractRotation(cam.matrixWorldInverse);
+    this.curVP.multiplyMatrices(this.originalProjection, rot);
+    if (!this.havePrev) this.prevVP.copy(this.curVP);
+    this.uSkyReproj.value.multiplyMatrices(this.prevVP, new THREE.Matrix4().copy(this.curVP).invert());
+    this.prevVP.copy(this.curVP);
+    this.havePrev = true;
     (velocity as any).setProjectionMatrix(this.originalProjection);
     const [hx, hy] = HALTON[this.jitterIndex];
     const jx = hx - 0.5, jy = hy - 0.5;
@@ -166,7 +181,18 @@ export class TAAULiteNode extends THREE.TempNode {
         mx.assign(max(mx, c));
       }
       const current = sum.div(wsum.max(1e-6));
-      const v = vel.load(tap).xy.mul(vec2(0.5, -0.5));
+      const v = vel.load(tap).xy.mul(vec2(0.5, -0.5)).toVar();
+      if (this.depthNode) {
+        // sky pixels have no motion vectors: reproject the view direction with the camera rotation
+        const dsky = this.depthNode.load(tap).r;
+        If(dsky.lessThanEqual(0.0000001), () => {
+          const ndc = vec2(uvo.x.mul(2).sub(1), float(1).sub(uvo.y.mul(2)));
+          const prev = this.uSkyReproj.mul(vec4(ndc, 0.0, 1));
+          const pndc = prev.xy.div(prev.w);
+          const puv = vec2(pndc.x.mul(0.5).add(0.5), float(0.5).sub(pndc.y.mul(0.5)));
+          v.assign(uvo.sub(puv));
+        });
+      }
       const huv = uvo.sub(v);
       const valid = huv.greaterThanEqual(0).all().and(huv.lessThanEqual(1).all());
       const h = hist.sample(huv);
@@ -191,4 +217,4 @@ export class TAAULiteNode extends THREE.TempNode {
   }
 }
 
-export const taauLite = (beauty: any, vel: any, camera: THREE.Camera) => nodeObject(new TAAULiteNode(convertToTexture(beauty), vel, camera));
+export const taauLite = (beauty: any, vel: any, camera: THREE.Camera, depth: any = null) => nodeObject(new TAAULiteNode(convertToTexture(beauty), vel, camera, depth));

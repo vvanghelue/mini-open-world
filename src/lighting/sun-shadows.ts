@@ -1,7 +1,8 @@
 // Sun visibility = near cascaded shadow maps (trees, aircraft, props within ~150 m) x heightfield shadows
 // (mountains + forest canopy, to the horizon). The terrain itself never renders into the shadow maps.
 import * as THREE from 'three/webgpu';
-import { Fn, float, uniform, mix } from 'three/tsl';
+import { Fn, float, uniform, mix, positionWorld } from 'three/tsl';
+import type { Clouds } from '../sky/clouds';
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { settings } from '../core/settings';
 import type { TerrainShadows } from './terrain-shadows';
@@ -12,7 +13,7 @@ export const sunShadowSettings = settings.group('sunShadows', 'Ombres proches', 
   mapSize: { value: 2048, options: { '1024': 1024, '2048': 2048, '4096': 4096 }, label: 'Résolution' },
 });
 
-export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.DirectionalLight, terrainShadows: TerrainShadows) {
+export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.DirectionalLight, terrainShadows: TerrainShadows, clouds: Clouds | null = null) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   sun.castShadow = true;
@@ -21,12 +22,15 @@ export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.Direc
   sun.shadow.camera.far = 1200;
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.05;
+  // shadow cameras see layer 1 too (shadow-only proxy meshes, e.g. LOD1 stand-ins for LOD0 trees)
+  sun.shadow.camera.layers.enable(1);
   const csm = new CSMShadowNode(sun, { cascades: 2, maxFar: sunShadowSettings.distance, mode: 'practical', lightMargin: 200 });
   csm.fade = true;
   const uCSM = uniform(sunShadowSettings.enabled ? 1 : 0);
   const combined = Fn(() => {
     const hf = terrainShadows.shadowNode;
-    return mix(float(1), (csm as any).x, uCSM).mul(hf);
+    const cl = clouds ? clouds.shadowAt(positionWorld) : float(1);
+    return mix(float(1), (csm as any).x, uCSM).mul(hf).mul(cl);
   })();
   (sun.shadow as any).shadowNode = combined;
   settings.on('sunShadows.enabled', (v) => {

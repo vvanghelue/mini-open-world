@@ -26,8 +26,8 @@ import { skyVisAt } from '../terrain/terrain-material';
 export const forestSettings = settings.group('forest', 'Forêt', {
   enabled: { value: true, label: 'Arbres' },
   density: { value: 1.0, min: 0, max: 2, step: 0.05, label: 'Densité' },
-  lod0Distance: { value: 45, min: 20, max: 200, step: 5, label: 'Distance LOD0 (m)' },
-  lod1Distance: { value: 140, min: 60, max: 600, step: 10, label: 'Distance LOD1 (m)' },
+  lod0Distance: { value: 30, min: 15, max: 200, step: 5, label: 'Distance LOD0 (m)' },
+  lod1Distance: { value: 100, min: 50, max: 600, step: 10, label: 'Distance LOD1 (m)' },
   maxDistance: { value: 2000, min: 500, max: 4000, step: 50, label: 'Distance max (m)' },
   treeline: { value: 2050, min: 1500, max: 2600, step: 10, label: 'Limite des arbres (m)' },
   wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
@@ -117,7 +117,7 @@ export class Forest implements System {
     // ---------------------------------------------------------------- buffers
     this.instBuf = new THREE.StorageBufferAttribute(new Float32Array(CAP_TOTAL * 8), 4);
     this.counters = new THREE.StorageBufferAttribute(new Uint32Array(16), 1);
-    const nEntries = NV * 4 + NB * 2;
+    const nEntries = NV * 6 + NB * 2;
     this.drawArgs = new THREE.IndirectStorageBufferAttribute(new Uint32Array(nEntries * 5), 5);
 
     // ---------------------------------------------------------------- instance transform (shared by all LOD meshes)
@@ -163,9 +163,20 @@ export class Forest implements System {
       for (const [lod, tree] of [[0, this.trees0[v]], [1, trees1[v]]] as const) {
         const list = lod === 0 ? v : NV + v;
         const { xf } = makeXform();
-        addDraw(tree.foliage, makeFoliageMaterial(tx, xf, tints[v]), list);
+        const fm = makeFoliageMaterial(tx, xf, tints[v]);
+        addDraw(tree.foliage, fm, list);
         const { xf: xfb } = makeXform();
-        addDraw(tree.bark, makeBarkMaterial(tx, xfb), list);
+        const bm = makeBarkMaterial(tx, xfb);
+        addDraw(tree.bark, bm, list);
+        if (lod === 0) {
+          // LOD0 trees cast their shadow with the light LOD1 geometry: shadow-only proxies on layer 1
+          // (the main camera renders layer 0 only, the sun's shadow cameras render layers 0 + 1)
+          const nShadowOnly = this.draws.length;
+          addDraw(trees1[v].foliage, fm, list, 'shadow');
+          addDraw(trees1[v].bark, bm, list, 'shadow');
+          for (const d of this.draws.slice(nShadowOnly)) d.mesh.layers.set(1);
+          for (const d of this.draws.slice(nShadowOnly - 2, nShadowOnly)) d.mesh.castShadow = false;
+        }
       }
     }
     const impGeo = this.makeImpostorGeometry();

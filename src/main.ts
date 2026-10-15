@@ -12,6 +12,7 @@ import { startBridge } from './agent/bridge';
 import { registerBuiltinCommands } from './agent/commands';
 import { TimeOfDay } from './sky/time-of-day';
 import { Atmosphere } from './sky/atmosphere';
+import { Clouds } from './sky/clouds';
 import { TerrainShadows } from './lighting/terrain-shadows';
 import { setupSunShadows } from './lighting/sun-shadows';
 import { SkyVisibility } from './lighting/sky-visibility';
@@ -52,13 +53,14 @@ async function main() {
   const skyVisibility = engine.add(new SkyVisibility(terrain));
   const forest = engine.add(new Forest(terrain, atmosphere, terrainShadows));
   const grass = engine.add(new Grass(terrain));
-  engine.add(new Post());
+  const clouds = engine.add(new Clouds(atmosphere));
+  engine.add(new Post(clouds));
   const player = engine.add(new Player(terrain, freeCam, input));
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
   await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
-  setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows);
+  setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
   terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
   freeCam.groundHeight = (x, z) => terrain.heightAt(x, z);
@@ -78,7 +80,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, forest, grass, player };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, skyVisibility, forest, grass, player, clouds };
   (window as any).app = app;
   registerBuiltinCommands(app);
 
