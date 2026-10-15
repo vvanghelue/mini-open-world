@@ -12,6 +12,7 @@ import { CdlodSelector, PATCH_N, MAX_PATCHES } from './cdlod';
 import { loadTerrainTextures, TerrainTextures } from './terrain-textures';
 import { applyTerrainMaterial } from './terrain-material';
 import { freezeStatic } from '../core/static';
+import { qualityScaled } from '../core/adaptive';
 
 export const terrainSettings = settings.group('terrain', 'Terrain', {
   lodDistance: { value: 260, min: 150, max: 800, step: 10, label: 'Distance de détail (m)', help: 'Portée du niveau de détail le plus fin ; chaque niveau suivant double.' },
@@ -257,7 +258,10 @@ export class Terrain implements System {
     cam.updateMatrixWorld();
     this.projView.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.projView, THREE.WebGPUCoordinateSystem, (cam as any).reversedDepth === true);
-    this.selector.select(cam.position, this.frustum, terrainSettings.lodDistance);
+    // adaptive detail: shorter finest-LOD range under load (shader morph uses the same value)
+    const lodDist = qualityScaled(terrainSettings.lodDistance, 0.7);
+    this.uLodDistance.value = lodDist;
+    this.selector.select(cam.position, this.frustum, lodDist);
     this.upload(this.fullMesh, this.selector.full, this.selector.fullCount);
     this.upload(this.quarterMesh, this.selector.quarter, this.selector.quarterCount);
     terrainSettings.patches = this.selector.fullCount + this.selector.quarterCount;

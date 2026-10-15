@@ -13,6 +13,7 @@ import type { Terrain } from '../terrain/terrain';
 import { settings } from '../core/settings';
 import { skyVisAt } from '../terrain/terrain-material';
 import { freezeStatic } from '../core/static';
+import { qualityScaled } from '../core/adaptive';
 
 export const roadSettings = settings.group('roads', 'Routes et sentiers', {
   enabled: { value: true, label: 'Routes et sentiers (OSM)' },
@@ -156,12 +157,13 @@ export class Roads implements System {
   update(_ctx: FrameContext) {
     const s = roadSettings;
     if (!s.enabled || !this.meshes.length) return;
-    this.uDist.value = s.distance;
+    const dist = qualityScaled(s.distance, 0.6); // adaptive detail
+    this.uDist.value = dist;
     this.uTrails.value = s.trails ? 1 : 0;
     const cam = this.engine.camera.position;
     for (const t of this.meshes) {
       const d = Math.hypot(t.center.x - cam.x, t.center.z - cam.z) - t.radius;
-      t.mesh.visible = d < s.distance;
+      t.mesh.visible = d < dist;
     }
   }
 }

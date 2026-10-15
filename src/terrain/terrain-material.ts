@@ -6,7 +6,7 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn, texture, uniform, vec2, vec3, vec4, float, If, clamp, mix, smoothstep, max, min, length, normalize, abs, pow,
-  dFdx, dFdy, positionWorld, cameraPosition, transformNormalToView, sin, time, property, int, reflect, dot,
+  dFdx, dFdy, positionWorld, cameraPosition, transformNormalToView, sin, time, property, int, reflect, dot, mrt,
 } from 'three/tsl';
 import type { TerrainTextures } from './terrain-textures';
 import { settings } from '../core/settings';
@@ -251,22 +251,25 @@ export function applyTerrainMaterial(mat: THREE.MeshStandardNodeMaterial, inp: T
   (mat as any).emissiveNode = Fn(() => {
     // light bounced by the surrounding relief (diffuse, occluded like the sky light)
     const out = (terrainHooks.bounce ? pAlbedo.mul(terrainHooks.bounce(positionWorld.xz)).mul(pAO.mul(1 / Math.PI)) : vec3(0)).toVar();
-    If(pWater.greaterThan(0.001), () => {
-      if (!terrainHooks.sky) return;
-      const v = normalize(positionWorld.sub(cameraPosition));
-      // reflections use a calmer normal: full-strength ripples alias into speckles in the mirrored relief
-      const dW = length(positionWorld.sub(cameraPosition));
-      const nR = normalize(mix(vec3(0, 1, 0), pNormal, mix(float(0.45), float(0.15), smoothstep(30, 800, dW))));
-      const r = reflect(v, nR);
-      const rr = vec3(r.x, max(r.y, 0.01), r.z).normalize();
-      const cosT = clamp(dot(v.negate(), pNormal), 0, 1);
-      const F = float(0.02).add(float(0.98).mul(pow(float(1).sub(cosT), 5)));
-      const sky = terrainHooks.sky(rr);
-      const refl = terrainHooks.reflection ? terrainHooks.reflection(positionWorld.add(vec3(0, 0.3, 0)), rr, sky) : sky;
-      out.addAssign(refl.mul(F).mul(pWater));
-    });
     return out;
   })();
+  // water reflections are computed in a separate half-resolution pass (lighting/water-reflection.ts, composited in
+  // post): the terrain only writes the reflection weight (Fresnel x water) and the calm reflection normal
+  (mat as any).mrtNode = mrt({
+    wmask: Fn(() => {
+      const res = vec4(0).toVar();
+      If(pWater.greaterThan(0.001), () => {
+        const v = normalize(positionWorld.sub(cameraPosition));
+        // reflections use a calmer normal: full-strength ripples alias into speckles in the mirrored relief
+        const dW = length(positionWorld.sub(cameraPosition));
+        const nR = normalize(mix(vec3(0, 1, 0), pNormal, mix(float(0.45), float(0.15), smoothstep(30, 800, dW))));
+        const cosT = clamp(dot(v.negate(), pNormal), 0, 1);
+        const F = float(0.02).add(float(0.98).mul(pow(float(1).sub(cosT), 5)));
+        res.assign(vec4(F.mul(pWater), nR.x.mul(0.5).add(0.5), nR.z.mul(0.5).add(0.5), 1));
+      });
+      return res;
+    })(),
+  });
   mat.roughnessNode = pRough;
   mat.aoNode = Fn(() => pAO.mul(skyVisAt(positionWorld.xz)))();
   mat.metalnessNode = float(0);

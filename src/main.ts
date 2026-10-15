@@ -4,7 +4,7 @@ import { Input } from './core/input';
 import { settings } from './core/settings';
 import { Terrain } from './terrain/terrain';
 import { terrainHooks } from './terrain/terrain-material';
-import { Post } from './post/post';
+import { Post, postHooks } from './post/post';
 import { FreeCamera } from './player/free-camera';
 import { Player } from './player/player';
 import { Panel } from './editor/panel';
@@ -22,7 +22,7 @@ import { Forest } from './vegetation/forest';
 import { Rocks } from './vegetation/rocks';
 import { AudioSystem } from './audio/audio';
 import { adaptive } from './core/adaptive';
-import { makeTerrainReflection } from './lighting/water-reflection';
+import { makeTerrainReflection, makeReflectionPass } from './lighting/water-reflection';
 import { BounceGI } from './lighting/bounce-gi';
 import { Airfield } from './world/airfield';
 import { Buildings } from './world/buildings';
@@ -78,7 +78,8 @@ async function main() {
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
   setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
   terrainHooks.sky = (dir) => atmosphere.skyNode(dir);
-  terrainHooks.reflection = makeTerrainReflection(terrain, atmosphere, terrainShadows);
+  // water reflections: heightfield ray march in a half-resolution screen pass (composited in post)
+  postHooks.waterReflection = makeReflectionPass(makeTerrainReflection(terrain, atmosphere, terrainShadows, engine.camera), atmosphere, (dir) => atmosphere.skyNode(dir), engine.camera);
   terrainHooks.skyVis = (xz) => skyVisibility.visibility(xz);
   terrainHooks.bounce = (xz) => bounceGI.irradiance(xz);
   lightingHooks.sunVisibilityAt = (p, cam) => (cam ? terrainShadows.visibilityFromAt(p, cam) : terrainShadows.visibilityAt(p)).mul(clouds.shadowAt(p));

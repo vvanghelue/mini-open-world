@@ -15,6 +15,9 @@ import { settings } from '../core/settings';
 import { DynamicResolution } from './dynamic-resolution';
 import { adaptive } from '../core/adaptive';
 
+/** Late-bound passes provided by other systems (built at first render, after every system is initialised). */
+export const postHooks: { waterReflection: ((depth: any, wmask: any) => any) | null } = { waterReflection: null };
+
 export const postSettings = settings.group('post', 'Post-traitement', {
   upscaler: { value: 'lite', options: { 'TAAU léger (rapide)': 'lite', 'TAAU three.js': 'taau', 'Bilinéaire': 'bilinear' }, label: 'Upscaling' },
   sharpen: { value: 0.25, min: 0, max: 1.5, step: 0.05, label: 'Netteté' },
@@ -54,7 +57,9 @@ export class Post implements System {
     const pipeline = new THREE.RenderPipeline(r);
     const scenePass = pass(engine.scene, engine.camera);
     scenePass.setResolutionScale(renderSettings.resolutionScale);
-    scenePass.setMRT(mrt({ output, velocity }));
+    // wmask: water reflection weight + calm normal written by the terrain material (rgba8)
+    scenePass.setMRT(mrt({ output, velocity, wmask: vec4(0) }));
+    (scenePass as any).getTexture('wmask').type = THREE.UnsignedByteType;
     this.scenePass = scenePass;
 
     const sceneColor = scenePass.getTextureNode('output');
@@ -65,10 +70,16 @@ export class Post implements System {
     if (this.clouds) {
       const cloudTex: any = rtt(this.clouds.marchNode(depth), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
       cloudTex.setResolutionScale(renderSettings.resolutionScale * cloudSettings.resolution);
+      // water reflections at half internal resolution (lighting/water-reflection.ts), weighted at full resolution
+      const wmask = scenePass.getTextureNode('wmask');
+      const reflTex: any = rtt(Fn(() => (postHooks.waterReflection ? postHooks.waterReflection(depth, wmask) : vec4(0)))(), null, null, { type: THREE.HalfFloatType, depthBuffer: false });
+      reflTex.setResolutionScale(renderSettings.resolutionScale * 0.5);
       const comp: any = rtt(Fn(() => {
         const c = sceneColor.sample(uv());
         const cl = cloudTex.sample(uv());
-        return vec4(c.rgb.mul(cl.a).add(cl.rgb), 1);
+        const w = wmask.sample(uv()).r;
+        const surface = c.rgb.add(reflTex.sample(uv()).rgb.mul(w));
+        return vec4(surface.mul(cl.a).add(cl.rgb), 1);
       })(), null, null, { type: THREE.UnsignedInt101111Type, format: THREE.RGBFormat, depthBuffer: false });
       comp.setResolutionScale(renderSettings.resolutionScale);
       color = comp;
@@ -78,6 +89,7 @@ export class Post implements System {
       };
       this.resizeClouds = (s: number) => {
         cloudTex.setResolutionScale(s * cloudSettings.resolution);
+        reflTex.setResolutionScale(s * 0.5);
         comp.setResolutionScale(s);
       };
       settings.on('clouds.resolution', () => this.resizeClouds(this.dyn.state.scale));
@@ -126,7 +138,7 @@ export class Post implements System {
     this.dyn.update(ctx.intervalMs);
     adaptive.scale = this.dyn.state.scale;
     adaptive.capped = this.dyn.state.capped;
-    adaptive.quality = this.dyn.state.quality;
+    adaptive.quality = renderSettings.forceDetail >= 0 ? renderSettings.forceDetail : this.dyn.state.quality;
   }
 
   private rebuild() {

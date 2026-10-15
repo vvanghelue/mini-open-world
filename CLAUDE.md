@@ -99,6 +99,9 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - Foliage depth pre-pass: masked depth-only pass, then shading with EQUAL depth and no discard. Requires
   `material.userData.invariantPosition = true` (@invariant patch) and, under reversed depth, `NotEqualDepth`
   (three r186 maps EqualDepth→NotEqual by mistake).
+- Inside RTT/quad passes the built-in camera nodes (`cameraPosition`, `cameraWorldMatrix`, projection inverse) are
+  NOT the scene camera: use explicit uniforms copied from `engine.camera` (see `makeReflectionPass`). Depth-buffer
+  positions are metres off far away (reversed depth): for water, intersect the view ray with the heightfield plane.
 - Compute shaders have no camera: pass camera position / matrices as uniforms (`visibilityFromAt(p, cam)`,
   `aerialPerspective(p, uv, cam)`).
 

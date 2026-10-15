@@ -28,6 +28,7 @@ export const renderSettings = settings.group(
     dynamicResolution: { value: true, label: 'Résolution dynamique', help: 'Baisse la résolution interne dans les scènes lourdes pour tenir la cible (et la remonte ensuite).' },
     targetFps: { value: 100, min: 30, max: 240, step: 5, label: 'Cible (fps, sans vsync)' },
     minResolutionScale: { value: 0.4, min: 0.25, max: 1, step: 0.05, label: 'Résolution interne min' },
+    forceDetail: { value: -1, min: -1, max: 1, step: 0.05, label: 'Forcer le niveau de détail (debug, -1 = auto)', hidden: true },
     outputPixelRatio: { value: 1, min: 0.5, max: 2, step: 0.25, label: 'Densité sortie', help: 'Pixel ratio du canvas (1 = 1 pixel par point CSS).' },
     fov: { value: 60, min: 30, max: 100, step: 1, label: 'Champ de vision' },
     paused: { value: false, label: 'Pause' },

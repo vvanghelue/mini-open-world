@@ -15,6 +15,7 @@ import { settings } from '../core/settings';
 import { skyVisAt, terrainHooks } from '../terrain/terrain-material';
 import { worldColliders } from './colliders';
 import { freezeStatic } from '../core/static';
+import { qualityScaled } from '../core/adaptive';
 
 export const buildingSettings = settings.group('buildings', 'Bâtiments', {
   enabled: { value: true, label: 'Bâtiments (OpenStreetMap)' },
@@ -234,7 +235,8 @@ export class Buildings implements System {
   update(_ctx: FrameContext) {
     const s = buildingSettings;
     if (!s.enabled || !this.meshes.length) return;
-    this.uFadeEnd.value = s.distance;
+    const dist = qualityScaled(s.distance, 0.5); // adaptive detail
+    this.uFadeEnd.value = dist;
     this.uLit.value = s.nightLights;
     // windows light up when the sun is a few degrees below the horizon
     const e = this.time.sunDir.y;
@@ -242,7 +244,7 @@ export class Buildings implements System {
     const cam = this.engine.camera.position;
     for (const t of this.meshes) {
       const d = Math.hypot(t.center.x - cam.x, t.center.z - cam.z) - t.radius;
-      t.mesh.visible = d < s.distance;
+      t.mesh.visible = d < dist;
     }
   }
 }

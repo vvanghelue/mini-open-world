@@ -48,6 +48,7 @@ export class Clouds implements System {
   readonly uThickness = uniform(1500);
   readonly uDensity = uniform(0.03);
   readonly uSteps = uniform(22);
+  readonly uMaxSteps = uniform(56);
   readonly uShadow = uniform(0.75);
   readonly uSunDir = uniform(new THREE.Vector3(0, 1, 0));
   readonly uSunColor = uniform(new THREE.Color());
@@ -208,7 +209,7 @@ export class Clouds implements System {
           const len = t1.sub(t0);
           // integer step count and a step length that covers the crossing exactly (a fractional count leaves a
           // partial last step that jumps between pixels: banding)
-          const steps = clamp(len.div(500).ceil(), this.uSteps, 56);
+          const steps = clamp(len.div(500).ceil(), this.uSteps, this.uMaxSteps);
           const dt = len.div(steps).max(30);
           const jitter = interleavedGradientNoise(screenCoordinate.xy.add(fract(time.mul(7.13)).mul(64)));
           const t = t0.add(dt.mul(jitter)).toVar();
@@ -271,7 +272,9 @@ export class Clouds implements System {
     this.uBase.value = s.base;
     this.uThickness.value = s.thickness;
     this.uDensity.value = s.density;
-    this.uSteps.value = s.steps;
+    // adaptive detail: fewer march steps under load
+    this.uSteps.value = Math.round(qualityScaled(s.steps, 0.55));
+    this.uMaxSteps.value = Math.round(qualityScaled(56, 0.55));
     this.uShadow.value = s.shadows;
     this.windOffset.x += ctx.dt * s.wind * 0.8;
     this.windOffset.y += ctx.dt * s.wind * 0.6;
@@ -285,6 +288,7 @@ export class Clouds implements System {
 
 // select helper (TSL select with node args)
 import { select } from 'three/tsl';
+import { qualityScaled } from '../core/adaptive';
 function select3(c, a, b) {
   return select(c, a, b);
 }

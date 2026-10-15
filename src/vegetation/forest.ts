@@ -21,7 +21,7 @@ import { generateTree, TREE_PRESETS, GeneratedTree, TwigRect } from './tree-gene
 import { makeFoliageMaterial, makeFoliageDepthMaterial, makeBarkMaterial, InstanceXform, TreeTextures, sunUniforms, windUniforms, fadeVisible } from './tree-materials';
 import { bakeImpostors, impostorShaderParts, ImpostorAtlas, IMP_N, IMP_COLS } from './impostors';
 import { registerCommand } from '../agent/bridge';
-import { qualityScaled } from '../core/adaptive';
+import { qualityScaled, adaptive } from '../core/adaptive';
 import { lightingHooks } from '../lighting/vertex-lighting';
 import { freezeStatic } from '../core/static';
 
@@ -97,6 +97,7 @@ export class Forest implements System {
 
   private uCam = uniform(new THREE.Vector3());
   private uViewProj = uniform(new THREE.Matrix4());
+  private uThin = uniform(new THREE.Vector3(600, 1500, 0.42));
   private uGridOrigin = uniform(new THREE.Vector2());
   private uGridN = uniform(0);
   private uPlanes = uniformArray([0, 1, 2, 3, 4, 5].map(() => new THREE.Vector4()));
@@ -499,7 +500,8 @@ export class Forest implements System {
       const vi = int(variant);
       // distance thinning: far away keep ~half of the trees and enlarge the survivors (same visual coverage,
       // much less overdraw); removal is dithered per tree so nothing pops
-      const keepP = mix(float(1), float(0.42), smoothstep(600, 1500, dist));
+      // adaptive detail: thinning starts closer under load (uThin: start, end, kept fraction)
+      const keepP = mix(float(1), this.uThin.z, smoothstep(this.uThin.x, this.uThin.y, dist));
       const rThin = rnd(pcg(h3.add(uint(77))));
       const thinFade = smoothstep(keepP.sub(0.05), keepP.add(0.05), rThin);
       If(thinFade.greaterThan(0.999), () => Return());
@@ -606,6 +608,7 @@ export class Forest implements System {
     this.uDensity.value = s.density;
     // adaptive detail (core/adaptive.ts) shortens the mesh LOD distances under load
     const d0 = qualityScaled(s.lod0Distance, 0.75), d1 = qualityScaled(s.lod1Distance, 0.65);
+    this.uThin.value.set(qualityScaled(600, 0.5), qualityScaled(1500, 0.65), 0.3 + 0.12 * adaptive.quality);
     this.uD0.value = d0;
     this.uD1.value = Math.max(d1, d0 * 1.3);
     this.uD2.value = s.maxDistance;
