@@ -89,4 +89,6 @@ Also: OSM roads and hiking trails, procedural audio, impostor depth pre-pass.
 Adaptive governor: dynamic internal resolution (0.40–0.60) then detail level, targeting 100 fps uncapped and
 no missed vsync when capped; visually near-identical at minimum detail.
 Ideas next: buildings LOD/roof detail, cloud temporal reprojection, bridges as 3D decks, rivers flow.
+Heat effect isolated (tools/dev/heat-effect.mjs, lake at the real window size): p95 7.4 ms cool, 8.9 ms right after a
+3-minute uncapped soak, 6.0 ms after 2 minutes of rest — same code and settings; within budget in all three states.
 

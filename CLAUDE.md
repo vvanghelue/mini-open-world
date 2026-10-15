@@ -54,6 +54,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - Ruled out as slow-frame causes (measured): GC (no overlap), progressive shadow / GI re-bakes (sun frozen: same p95),
   per-frame allocations (154 KB/frame, 87 % inside three.js). Real-window lake p95 is ~7 ms cool, ~10 ms only after
   minutes of continuous uncapped load (heat). `ab.mjs` prints the mean p95 of each variant too.
+- Heat effect isolated with `tools/dev/heat-effect.mjs` (same bench cool / after a 3 min soak / after 2 min rest):
+  lake 1470x830 p95 7.4 -> 8.9 -> 6.0 ms, frames > 10 ms 0.42 -> 1.74 -> 0.15 %.
 - Thermal throttling measured with `tools/dev/thermal.mjs`: same workload 4.5 ms cold -> 8.9 ms after 2.5 min of
   uncapped load (x1.95), back to cold speed after ~1 min of rest. Uncapped stress numbers depend on the run order.
 - Uncapped Chrome has 1–3 interval spikes > 10 ms per second even on an empty page (`tools/dev/spike-rate.mjs`):
