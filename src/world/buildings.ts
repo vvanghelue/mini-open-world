@@ -138,7 +138,7 @@ export class Buildings implements System {
       const lit = step(rnd, this.uLit).mul(winMask).mul(this.uNight);
       const glow = vec3(1.0, 0.62, 0.32).mul(lit).mul(mix(float(0.6), float(1.4), fract(rnd.mul(3.7))));
       const bounce = terrainHooks.bounce ? col.mul(terrainHooks.bounce(positionWorld.xz)).mul(1 / Math.PI) : vec3(0);
-      return glow.mul(2.5).add(bounce);
+      return glow.mul(6).add(bounce);
     })();
     void dot; void max; void min; void abs; void vec2; void vec4;
     return m;

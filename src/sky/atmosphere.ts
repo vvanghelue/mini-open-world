@@ -28,6 +28,7 @@ export const atmoSettings = settings.group('atmo', 'Atmosphère & lumière', {
   ozone: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Ozone' },
   groundAlbedo: { value: 0.2, min: 0, max: 0.6, step: 0.01, label: 'Albédo sol' },
   exposureEV: { value: 0, min: -4, max: 4, step: 0.1, label: 'Exposition (EV)' },
+  nightDarkening: { value: 0.17, min: 0, max: 0.4, step: 0.01, label: 'Assombrissement crépuscule / nuit', help: '0 = œil totalement adapté (nuit aussi claire que le jour).' },
   nightAdaptation: { value: 0.25, min: 0.01, max: 50, step: 0.01, label: 'Adaptation nuit (lux)', help: 'Plus bas = nuits plus lumineuses (œil adapté).' },
   adaptSpeed: { value: 1.5, min: 0.1, max: 10, step: 0.1, label: 'Vitesse adaptation' },
   stars: { value: 1.0, min: 0, max: 5, step: 0.05, label: 'Étoiles' },
@@ -569,9 +570,10 @@ export class Atmosphere implements System {
     // sun-facing slopes receive the direct normal illuminance: expose for the brighter of both estimates
     const directNormal = SUN_ILLUMINANCE * s.sunIntensity * this.sunTransLum;
     const sceneLux = Math.max(lux, directNormal * 0.45);
-    // photographic bias: keep twilight moody instead of fully adapted
-    const twilight = THREE.MathUtils.smoothstep(sunElev, -13, -6) * (1 - THREE.MathUtils.smoothstep(sunElev, -1, 4));
-    const target = (5 / (sceneLux + s.nightAdaptation)) * Math.pow(2, s.exposureEV - 1.2 * twilight);
+    // perceptual adaptation: the eye only partly compensates for less light, so dusk and night stay darker than
+    // day (about -2 EV at the end of civil twilight, -3..-4 EV by moonlight) instead of a fully adapted "day for night"
+    const dim = Math.pow(Math.min(1, (sceneLux + s.nightAdaptation) / 20000), s.nightDarkening);
+    const target = (5 / (sceneLux + s.nightAdaptation)) * dim * Math.pow(2, s.exposureEV);
     const k = ctx.dt > 0 ? 1 - Math.exp(-ctx.dt * s.adaptSpeed) : 1;
     // time jumps (slider, agent) snap the exposure instead of adapting slowly
     const jumped = Math.abs(this.time.hourDelta) > 0.2;
