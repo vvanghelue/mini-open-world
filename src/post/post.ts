@@ -44,6 +44,8 @@ export class Post implements System {
   private liteOut: any;
   private dyn!: DynamicResolution;
   private resizeClouds: (s: number) => void = () => {};
+  /** Cloud march resolution factor under load (two levels: a continuous change would reallocate every frame). */
+  private cloudFactor = 1;
   private uSharpen = uniform(0.25);
 
   constructor(private clouds: Clouds | null = null) {}
@@ -88,7 +90,7 @@ export class Post implements System {
         comp.setResolutionScale(renderSettings.resolutionScale);
       };
       this.resizeClouds = (s: number) => {
-        cloudTex.setResolutionScale(s * cloudSettings.resolution);
+        cloudTex.setResolutionScale(s * cloudSettings.resolution * this.cloudFactor);
         reflTex.setResolutionScale(s * 0.5);
         comp.setResolutionScale(s);
       };
@@ -145,6 +147,11 @@ export class Post implements System {
     adaptive.scale = this.dyn.state.scale;
     adaptive.capped = this.dyn.state.capped;
     adaptive.quality = renderSettings.forceDetail >= 0 ? renderSettings.forceDetail : this.dyn.state.quality;
+    const cf = adaptive.quality < 0.5 ? 0.75 : 1;
+    if (cf !== this.cloudFactor) {
+      this.cloudFactor = cf;
+      this.resizeClouds(this.dyn.state.scale);
+    }
   }
 
   private rebuild() {

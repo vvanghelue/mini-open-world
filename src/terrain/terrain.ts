@@ -259,7 +259,7 @@ export class Terrain implements System {
     this.projView.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.projView, THREE.WebGPUCoordinateSystem, (cam as any).reversedDepth === true);
     // adaptive detail: shorter finest-LOD range under load (shader morph uses the same value)
-    const lodDist = qualityScaled(terrainSettings.lodDistance, 0.7);
+    const lodDist = qualityScaled(terrainSettings.lodDistance, 0.55);
     this.uLodDistance.value = lodDist;
     this.selector.select(cam.position, this.frustum, lodDist);
     this.upload(this.fullMesh, this.selector.full, this.selector.fullCount);
