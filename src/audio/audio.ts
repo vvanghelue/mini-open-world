@@ -11,13 +11,13 @@ import type { Player } from '../player/player';
 import { playerSettings } from '../player/player';
 import { forestSettings } from '../vegetation/forest';
 
-export const audioSettings = settings.group('audio', 'Son', {
-  enabled: { value: true, label: 'Son' },
-  volume: { value: 0.7, min: 0, max: 1, step: 0.05, label: 'Volume général' },
-  wind: { value: 1, min: 0, max: 2, step: 0.05, label: 'Vent' },
-  engine: { value: 1, min: 0, max: 2, step: 0.05, label: 'Moteur' },
-  ambience: { value: 1, min: 0, max: 2, step: 0.05, label: 'Ambiance (cloches, oiseaux)' },
-  footsteps: { value: 1, min: 0, max: 2, step: 0.05, label: 'Pas' },
+export const audioSettings = settings.group('audio', 'Sound', {
+  enabled: { value: true, label: 'Sound' },
+  volume: { value: 0.7, min: 0, max: 1, step: 0.05, label: 'Master volume' },
+  wind: { value: 1, min: 0, max: 2, step: 0.05, label: 'Wind' },
+  engine: { value: 1, min: 0, max: 2, step: 0.05, label: 'Engine' },
+  ambience: { value: 1, min: 0, max: 2, step: 0.05, label: 'Ambience (bells, birds)' },
+  footsteps: { value: 1, min: 0, max: 2, step: 0.05, label: 'Footsteps' },
 });
 
 function pinkNoise(ctx: AudioContext, seconds: number) {

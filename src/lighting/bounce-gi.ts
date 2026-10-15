@@ -21,11 +21,11 @@ import type { TimeOfDay } from '../sky/time-of-day';
 import type { TerrainShadows } from './terrain-shadows';
 import type { SkyVisibility } from './sky-visibility';
 
-export const giSettings = settings.group('gi', 'Rebond de lumière (GI)', {
-  enabled: { value: true, label: 'Lumière réfléchie par le relief' },
-  strength: { value: 1, min: 0, max: 3, step: 0.05, label: 'Intensité du rebond' },
-  rowsPerFrame: { value: 2, min: 1, max: 64, step: 1, label: 'Lignes recalculées / image', help: 'Petites tranches : un recalcul étalé ne provoque pas d\'image lente.' },
-  sunTolerance: { value: 1.5, min: 0.25, max: 10, step: 0.25, label: 'Recalcul si le soleil bouge de (°)' },
+export const giSettings = settings.group('gi', 'Light bounce (GI)', {
+  enabled: { value: true, label: 'Light bounced off the terrain' },
+  strength: { value: 1, min: 0, max: 3, step: 0.05, label: 'Bounce strength' },
+  rowsPerFrame: { value: 2, min: 1, max: 64, step: 1, label: 'Rows re-baked per frame', help: 'Small slices: a spread-out re-bake causes no slow frame.' },
+  sunTolerance: { value: 1.5, min: 0.25, max: 10, step: 0.25, label: 'Re-bake when the sun moves by (°)' },
 });
 
 const NDIR = 12;

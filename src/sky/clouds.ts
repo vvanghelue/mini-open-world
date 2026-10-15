@@ -13,16 +13,16 @@ import type { Engine, System, FrameContext } from '../core/engine';
 import { settings } from '../core/settings';
 import type { Atmosphere } from './atmosphere';
 
-export const cloudSettings = settings.group('clouds', 'Nuages', {
-  enabled: { value: true, label: 'Nuages volumétriques' },
-  coverage: { value: 0.42, min: 0, max: 1, step: 0.01, label: 'Couverture' },
+export const cloudSettings = settings.group('clouds', 'Clouds', {
+  enabled: { value: true, label: 'Volumetric clouds' },
+  coverage: { value: 0.42, min: 0, max: 1, step: 0.01, label: 'Coverage' },
   base: { value: 2700, min: 800, max: 6000, step: 50, label: 'Base (m)' },
-  thickness: { value: 1500, min: 200, max: 5000, step: 50, label: 'Épaisseur (m)' },
-  density: { value: 0.03, min: 0.002, max: 0.15, step: 0.001, label: 'Densité' },
-  wind: { value: 9, min: 0, max: 60, step: 0.5, label: 'Vent (m/s)' },
-  steps: { value: 22, min: 8, max: 64, step: 1, label: 'Pas de marche' },
-  resolution: { value: 0.5, min: 0.25, max: 1, step: 0.05, label: 'Résolution relative' },
-  shadows: { value: 0.75, min: 0, max: 1, step: 0.05, label: 'Ombres des nuages' },
+  thickness: { value: 1500, min: 200, max: 5000, step: 50, label: 'Thickness (m)' },
+  density: { value: 0.03, min: 0.002, max: 0.15, step: 0.001, label: 'Density' },
+  wind: { value: 9, min: 0, max: 60, step: 0.5, label: 'Wind (m/s)' },
+  steps: { value: 22, min: 8, max: 64, step: 1, label: 'March steps' },
+  resolution: { value: 0.5, min: 0.25, max: 1, step: 0.05, label: 'Relative resolution' },
+  shadows: { value: 0.75, min: 0, max: 1, step: 0.05, label: 'Cloud shadows' },
 });
 
 const N3 = 64;

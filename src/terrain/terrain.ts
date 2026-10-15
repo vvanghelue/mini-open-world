@@ -15,12 +15,12 @@ import { freezeStatic } from '../core/static';
 import { qualityScaled } from '../core/adaptive';
 
 export const terrainSettings = settings.group('terrain', 'Terrain', {
-  lodDistance: { value: 260, min: 150, max: 800, step: 10, label: 'Distance de détail (m)', help: 'Portée du niveau de détail le plus fin ; chaque niveau suivant double.' },
-  morphStart: { value: 0.66, min: 0.4, max: 0.9, step: 0.01, label: 'Début du morphing' },
-  wireframe: { value: false, label: 'Fil de fer' },
-  freezeLod: { value: false, label: 'Figer le LOD' },
-  canopyShell: { value: 20, min: 0, max: 35, step: 1, label: 'Coque canopée lointaine (m)', help: 'Au-delà de la distance des arbres, le relief des forêts est rehaussé de la hauteur des arbres.' },
-  canopyStart: { value: 2200, min: 300, max: 5000, step: 50, label: 'Début coque canopée (m)' },
+  lodDistance: { value: 260, min: 150, max: 800, step: 10, label: 'Detail distance (m)', help: 'Range of the finest detail level; each following level doubles it.' },
+  morphStart: { value: 0.66, min: 0.4, max: 0.9, step: 0.01, label: 'Morph start' },
+  wireframe: { value: false, label: 'Wireframe' },
+  freezeLod: { value: false, label: 'Freeze LOD' },
+  canopyShell: { value: 20, min: 0, max: 35, step: 1, label: 'Distant canopy shell (m)', help: 'Beyond the tree distance, forested terrain is raised by the tree height.' },
+  canopyStart: { value: 2200, min: 300, max: 5000, step: 50, label: 'Canopy shell start (m)' },
   patches: { value: 0, readonly: true, label: 'Patches' },
 });
 

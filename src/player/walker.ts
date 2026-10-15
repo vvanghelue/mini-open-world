@@ -5,13 +5,13 @@ import { settings } from '../core/settings';
 import type { TreeQuery, Trunk } from './tree-query';
 import { worldColliders } from '../world/colliders';
 
-export const walkSettings = settings.group('walk', 'Marche', {
-  walkSpeed: { value: 1.6, min: 0.5, max: 4, step: 0.1, label: 'Vitesse marche (m/s)' },
-  runSpeed: { value: 5.5, min: 2, max: 15, step: 0.5, label: 'Vitesse course (m/s)' },
-  eyeHeight: { value: 1.7, min: 1.2, max: 2.2, step: 0.05, label: 'Hauteur des yeux (m)' },
-  jump: { value: 4.2, min: 0, max: 10, step: 0.1, label: 'Saut (m/s)' },
-  maxSlope: { value: 42, min: 20, max: 70, step: 1, label: 'Pente max (°)' },
-  headBob: { value: 0.5, min: 0, max: 1, step: 0.05, label: 'Balancement' },
+export const walkSettings = settings.group('walk', 'Walking', {
+  walkSpeed: { value: 1.6, min: 0.5, max: 4, step: 0.1, label: 'Walk speed (m/s)' },
+  runSpeed: { value: 5.5, min: 2, max: 15, step: 0.5, label: 'Run speed (m/s)' },
+  eyeHeight: { value: 1.7, min: 1.2, max: 2.2, step: 0.05, label: 'Eye height (m)' },
+  jump: { value: 4.2, min: 0, max: 10, step: 0.1, label: 'Jump (m/s)' },
+  maxSlope: { value: 42, min: 20, max: 70, step: 1, label: 'Max slope (°)' },
+  headBob: { value: 0.5, min: 0, max: 1, step: 0.05, label: 'Head bob' },
 });
 
 const _n = { x: 0, y: 1, z: 0 };

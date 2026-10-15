@@ -12,8 +12,8 @@ import type { Engine, System } from '../core/engine';
 import type { Terrain } from '../terrain/terrain';
 import { settings } from '../core/settings';
 
-export const skyVisSettings = settings.group('skyVis', 'Lumière du ciel (GI)', {
-  strength: { value: 1.0, min: 0, max: 1, step: 0.05, label: 'Occlusion du ciel (relief)' },
+export const skyVisSettings = settings.group('skyVis', 'Sky light (GI)', {
+  strength: { value: 1.0, min: 0, max: 1, step: 0.05, label: 'Sky occlusion (terrain)' },
 });
 
 interface Grid {

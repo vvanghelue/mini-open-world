@@ -15,11 +15,11 @@ import type { Terrain } from '../terrain/terrain';
 import type { TimeOfDay } from '../sky/time-of-day';
 import { settings } from '../core/settings';
 
-export const shadowSettings = settings.group('shadows', 'Ombres', {
-  terrainShadows: { value: true, label: 'Ombres du relief' },
-  canopyHeight: { value: 22, min: 0, max: 40, step: 1, label: 'Hauteur canopée (m)' },
-  rowsPerFrame: { value: 64, min: 8, max: 512, step: 8, label: 'Lignes calculées / image' },
-  softness: { value: 1.0, min: 0.2, max: 4, step: 0.1, label: 'Douceur pénombre' },
+export const shadowSettings = settings.group('shadows', 'Shadows', {
+  terrainShadows: { value: true, label: 'Terrain shadows' },
+  canopyHeight: { value: 22, min: 0, max: 40, step: 1, label: 'Canopy height (m)' },
+  rowsPerFrame: { value: 64, min: 8, max: 512, step: 8, label: 'Rows computed per frame' },
+  softness: { value: 1.0, min: 0.2, max: 4, step: 0.1, label: 'Penumbra softness' },
 });
 
 interface Level {

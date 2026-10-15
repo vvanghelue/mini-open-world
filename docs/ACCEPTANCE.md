@@ -1,27 +1,27 @@
-# Test d'acceptation — Mini Open World
+# Acceptance test — Mini Open World
 
-Généré automatiquement par `node tools/acceptance.mjs` le 2026-10-15 12:53 (MacBook Air M4, Chrome).
-Chaque exigence de la demande initiale est vérifiée par une mesure ; relancer la commande pour revérifier.
+Generated automatically by `node tools/acceptance.mjs` on 2026-10-15 12:53 (MacBook Air M4, Chrome).
+Each requirement of the original request is checked by a measurement; run the command again to re-check.
 
-**Résultat : 16 / 16 exigences validées.**
+**Result: 16 / 16 requirements met.**
 
-| Exigence | Résultat | Mesure |
+| Requirement | Result | Measurement |
 |---|---|---|
-| Scène de montagne de plusieurs km | ✅ | relief réel 24.576 km (détail 3 m) + horizon 81.92 km, 23435 bâtiments |
-| Arbres et végétation | ✅ | 10885 arbres affichés depuis un sentier en forêt ; 3600 touffes d'herbe et 24 rochers sur l'alpage de la Kleine Scheidegg |
-| Décoller en avion | ✅ | décollage depuis la piste d'Interlaken : 139 km/h, 23 m au-dessus du sol |
-| Se promener à pied | ✅ | 4.1 m parcourus en 2,5 s au sol ; les murs des bâtiments bloquent le marcheur |
-| Monde éditable (éditeur) | ✅ | chalet placé, le marcheur s'arrête à 5.0 m de son centre (mur à 4,6 m) ; enregistré dans world/props.json puis retiré ; placement/suppression à la souris en caméra libre (section « Éditeur du monde ») |
-| Cycle jour/nuit réaliste | ✅ | luminance moyenne jour 105 > crépuscule 60 > nuit 4 (nuit visible, pas noire) |
-| Illumination globale (GI) | ✅ | lumière réfléchie par le relief au fond de la vallée : 0.033 / 0.034 / 0.026 (RGB), plus occlusion du ciel précalculée |
-| Ombres lointaines (relief à l'horizon) | ✅ | ombres portées des montagnes sur des dizaines de km : écart d'image 13.7 avec/sans |
-| Reflets (SSR optimisé) | ✅ | les montagnes se reflètent dans le lac de Brienz : écart d'image 6.1 avec/sans |
-| Lens flare | ✅ | face au soleil : écart d'image 0.76 avec/sans lens flare |
-| Panneau latéral de réglages | ✅ | 23 sections, 117 réglages (touche F1) |
-| Outils pour éditer en autonomie | ✅ | 25 commandes agent (réglages, caméra, captures, bench, avion…) + CLI tools/*.mjs + scripts de données |
-| 100+ fps sur le MacBook Air (fenêtre 1470×830) | ✅ | valley 167 fps (p95 7.9 ms), flyover 211 fps (p95 6 ms), lake 176 fps (p95 9 ms), walk 169 fps (p95 7.3 ms) |
-| Aucune erreur | ✅ | aucune erreur dans la console pendant tout le test |
-| Pas de saut d'images, transitions fluides (Chrome normal, 60 Hz) | ✅ | 4796 images à 60 Hz sur 4 parcours, p99 ≤ 25 ms partout, pire image 18 ms, qualité maximale conservée (100 %) |
-| Marge (au-delà de la demande) : 2560×1440 sans plafond, p95 ≤ 10 ms | ✅ | valley p95 8 ms, flyover p95 8.1 ms, lake p95 7.9 ms, walk p95 8.6 ms (gouverneur de qualité actif ; Chrome seul produisait 0.3 pics > 10 ms/s sur une page vide, soit ~0.2 % des images) |
+| Mountain scene several km wide | ✅ | real terrain 24.576 km (3 m detail) + horizon 81.92 km, 23435 buildings |
+| Trees and vegetation | ✅ | 10885 trees drawn from a forest trail; 3600 grass tufts and 24 rocks on the Kleine Scheidegg pasture |
+| Take off in a plane | ✅ | takeoff from the Interlaken runway: 139 km/h, 23 m above the ground |
+| Walk around on foot | ✅ | 4.1 m walked in 2.5 s on the ground; building walls block the walker |
+| Editable world (editor) | ✅ | chalet placed, the walker stops 5.0 m from its centre (wall at 4.6 m); saved to world/props.json then removed; mouse place/remove in free camera ("World editor" section) |
+| Realistic day/night cycle | ✅ | mean luminance day 105 > dusk 60 > night 4 (night visible, not black) |
+| Global illumination (GI) | ✅ | light bounced off the terrain at the valley floor: 0.033 / 0.034 / 0.026 (RGB), plus baked sky occlusion |
+| Far shadows (terrain to the horizon) | ✅ | mountains cast shadows over tens of km: image difference 13.7 with/without |
+| Reflections (optimised SSR) | ✅ | the mountains reflect in Lake Brienz: image difference 6.1 with/without |
+| Lens flare | ✅ | facing the sun: image difference 0.76 with/without lens flare |
+| Side settings panel | ✅ | 23 sections, 117 settings (F1 key) |
+| Tools to edit autonomously | ✅ | 25 agent commands (settings, camera, screenshots, bench, plane…) + CLI tools/*.mjs + data scripts |
+| 100+ fps on the MacBook Air (1470×830 window) | ✅ | valley 167 fps (p95 7.9 ms), flyover 211 fps (p95 6 ms), lake 176 fps (p95 9 ms), walk 169 fps (p95 7.3 ms) |
+| No errors | ✅ | no console error during the whole test |
+| No dropped frames, smooth transitions (normal Chrome, 60 Hz) | ✅ | 4796 frames at 60 Hz over 4 paths, p99 ≤ 25 ms everywhere, worst frame 18 ms, full quality kept (100 %) |
+| Headroom (beyond the request): 2560×1440 uncapped, p95 ≤ 10 ms | ✅ | valley p95 8 ms, flyover p95 8.1 ms, lake p95 7.9 ms, walk p95 8.6 ms (quality governor active; Chrome alone produced 0.3 spikes > 10 ms/s on an empty page, ~0.2 % of frames) |
 
-Captures produites par le test : `screenshots/acc_*.png`. Historique de toutes les exécutions : `docs/ACCEPTANCE-HISTORY.md`.
+Screenshots taken by the test: `screenshots/acc_*.png`. History of every run: `docs/ACCEPTANCE-HISTORY.md`.

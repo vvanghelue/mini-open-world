@@ -11,14 +11,14 @@ import {
 import type { TerrainTextures } from './terrain-textures';
 import { settings } from '../core/settings';
 
-export const terrainMatSettings = settings.group('terrainMat', 'Terrain — matériaux', {
-  detailDistance: { value: 1400, min: 200, max: 4000, step: 50, label: 'Distance détail (m)' },
-  tintStrength: { value: 0.85, min: 0, max: 1, step: 0.01, label: 'Teinte orthophoto' },
-  normalStrength: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Relief des textures' },
-  heightBlend: { value: 3.0, min: 0, max: 8, step: 0.1, label: 'Mélange par hauteur' },
-  cliffAngle: { value: 0.42, min: 0.2, max: 0.8, step: 0.01, label: 'Seuil falaise (1-cos)' },
-  canopyDarkening: { value: 1, min: 0, max: 1, step: 0.05, label: 'Assombrissement forêts lointaines' },
-  macroOnly: { value: false, label: 'Orthophoto seule (debug)' },
+export const terrainMatSettings = settings.group('terrainMat', 'Terrain — materials', {
+  detailDistance: { value: 1400, min: 200, max: 4000, step: 50, label: 'Detail distance (m)' },
+  tintStrength: { value: 0.85, min: 0, max: 1, step: 0.01, label: 'Orthophoto tint' },
+  normalStrength: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Texture relief' },
+  heightBlend: { value: 3.0, min: 0, max: 8, step: 0.1, label: 'Height blend' },
+  cliffAngle: { value: 0.42, min: 0.2, max: 0.8, step: 0.01, label: 'Cliff threshold (1-cos)' },
+  canopyDarkening: { value: 1, min: 0, max: 1, step: 0.05, label: 'Distant forest darkening' },
+  macroOnly: { value: false, label: 'Orthophoto only (debug)' },
 });
 
 const TILE = [5, 4, 7, 14, 9, 4, 7, 12]; // metres per texture repeat, per layer

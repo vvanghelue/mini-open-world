@@ -23,15 +23,15 @@ export interface System {
 
 export const renderSettings = settings.group(
   'render',
-  'Rendu',
+  'Rendering',
   {
-    resolutionScale: { value: 0.6, min: 0.3, max: 1, step: 0.05, label: 'Résolution interne (max)', help: 'Fraction de la résolution de sortie réellement calculée (upscaling TAAU). Maximum de la résolution dynamique.' },
-    dynamicResolution: { value: true, label: 'Résolution dynamique', help: 'Baisse la résolution interne dans les scènes lourdes pour tenir la cible (et la remonte ensuite).' },
-    targetFps: { value: 100, min: 30, max: 240, step: 5, label: 'Cible (fps, sans vsync)' },
-    minResolutionScale: { value: 0.4, min: 0.25, max: 1, step: 0.05, label: 'Résolution interne min' },
-    forceDetail: { value: -1, min: -1, max: 1, step: 0.05, label: 'Forcer le niveau de détail (debug, -1 = auto)', hidden: true },
-    outputPixelRatio: { value: 1, min: 0.5, max: 2, step: 0.25, label: 'Densité sortie', help: 'Pixel ratio du canvas (1 = 1 pixel par point CSS).' },
-    fov: { value: 60, min: 30, max: 100, step: 1, label: 'Champ de vision' },
+    resolutionScale: { value: 0.6, min: 0.3, max: 1, step: 0.05, label: 'Internal resolution (max)', help: 'Fraction of the output resolution actually rendered (TAAU upscaling). Upper bound of the dynamic resolution.' },
+    dynamicResolution: { value: true, label: 'Dynamic resolution', help: 'Lowers the internal resolution in heavy scenes to hold the target (and raises it again afterwards).' },
+    targetFps: { value: 100, min: 30, max: 240, step: 5, label: 'Target (fps, without vsync)' },
+    minResolutionScale: { value: 0.4, min: 0.25, max: 1, step: 0.05, label: 'Internal resolution (min)' },
+    forceDetail: { value: -1, min: -1, max: 1, step: 0.05, label: 'Force detail level (debug, -1 = auto)', hidden: true },
+    outputPixelRatio: { value: 1, min: 0.5, max: 2, step: 0.25, label: 'Output density', help: 'Canvas pixel ratio (1 = 1 pixel per CSS point).' },
+    fov: { value: 60, min: 30, max: 100, step: 1, label: 'Field of view' },
     paused: { value: false, label: 'Pause' },
   },
   true,
@@ -74,7 +74,7 @@ export class Engine {
   static async create(container: HTMLElement): Promise<Engine> {
     // raise the limits we rely on (terrain shaders sample many textures, vegetation uses large buffers)
     const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'high-performance' });
-    if (!adapter) throw new Error('WebGPU indisponible : ce projet nécessite Chrome avec WebGPU.');
+    if (!adapter) throw new Error('WebGPU unavailable: this project needs Chrome with WebGPU.');
     const want: Record<string, number> = {
       maxSampledTexturesPerShaderStage: 32,
       maxStorageTexturesPerShaderStage: 8,
@@ -94,7 +94,7 @@ export class Engine {
     const engine = new Engine(container, requiredLimits);
     await engine.renderer.init();
     if (!(engine.renderer.backend as any).isWebGPUBackend) {
-      throw new Error('WebGPU indisponible : ce projet nécessite Chrome avec WebGPU.');
+      throw new Error('WebGPU unavailable: this project needs Chrome with WebGPU.');
     }
     container.appendChild(engine.renderer.domElement);
     engine.stats.gpuSupported = !!(engine.renderer.backend as any).trackTimestamp;

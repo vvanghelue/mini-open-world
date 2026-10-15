@@ -4,10 +4,10 @@ import { Euler, PerspectiveCamera, Vector3 } from 'three/webgpu';
 import type { Input } from '../core/input';
 import { settings } from '../core/settings';
 
-export const freeCamSettings = settings.group('freecam', 'Caméra libre', {
-  speed: { value: 60, min: 1, max: 3000, step: 1, label: 'Vitesse (m/s)' },
-  sensitivity: { value: 0.0022, min: 0.0005, max: 0.008, step: 0.0001, label: 'Sensibilité souris' },
-  smoothing: { value: 0.12, min: 0, max: 0.5, step: 0.01, label: 'Lissage' },
+export const freeCamSettings = settings.group('freecam', 'Free camera', {
+  speed: { value: 60, min: 1, max: 3000, step: 1, label: 'Speed (m/s)' },
+  sensitivity: { value: 0.0022, min: 0.0005, max: 0.008, step: 0.0001, label: 'Mouse sensitivity' },
+  smoothing: { value: 0.12, min: 0, max: 0.5, step: 0.01, label: 'Smoothing' },
 });
 
 const _fwd = new Vector3();

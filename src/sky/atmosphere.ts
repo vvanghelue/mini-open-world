@@ -21,20 +21,20 @@ import {
   skyIlluminanceLux,
 } from './atmosphere-model';
 
-export const atmoSettings = settings.group('atmo', 'Atmosphère & lumière', {
-  haze: { value: 1.0, min: 0, max: 8, step: 0.05, label: 'Brume (aérosols)' },
-  rayleigh: { value: 1.0, min: 0.2, max: 3, step: 0.05, label: 'Diffusion Rayleigh' },
-  mieG: { value: 0.8, min: 0.5, max: 0.95, step: 0.01, label: 'Anisotropie brume' },
+export const atmoSettings = settings.group('atmo', 'Atmosphere & light', {
+  haze: { value: 1.0, min: 0, max: 8, step: 0.05, label: 'Haze (aerosols)' },
+  rayleigh: { value: 1.0, min: 0.2, max: 3, step: 0.05, label: 'Rayleigh scattering' },
+  mieG: { value: 0.8, min: 0.5, max: 0.95, step: 0.01, label: 'Haze anisotropy' },
   ozone: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Ozone' },
-  groundAlbedo: { value: 0.2, min: 0, max: 0.6, step: 0.01, label: 'Albédo sol' },
-  exposureEV: { value: 0, min: -4, max: 4, step: 0.1, label: 'Exposition (EV)' },
-  nightDarkening: { value: 0.17, min: 0, max: 0.4, step: 0.01, label: 'Assombrissement crépuscule / nuit', help: '0 = œil totalement adapté (nuit aussi claire que le jour).' },
-  nightAdaptation: { value: 0.25, min: 0.01, max: 50, step: 0.01, label: 'Adaptation nuit (lux)', help: 'Plus bas = nuits plus lumineuses (œil adapté).' },
-  adaptSpeed: { value: 1.5, min: 0.1, max: 10, step: 0.1, label: 'Vitesse adaptation' },
-  stars: { value: 1.0, min: 0, max: 5, step: 0.05, label: 'Étoiles' },
-  aerialPerspective: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Perspective aérienne' },
-  sunIntensity: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Intensité soleil' },
-  ambient: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Lumière du ciel' },
+  groundAlbedo: { value: 0.2, min: 0, max: 0.6, step: 0.01, label: 'Ground albedo' },
+  exposureEV: { value: 0, min: -4, max: 4, step: 0.1, label: 'Exposure (EV)' },
+  nightDarkening: { value: 0.17, min: 0, max: 0.4, step: 0.01, label: 'Dusk / night darkening', help: '0 = fully adapted eye (night as bright as day).' },
+  nightAdaptation: { value: 0.25, min: 0.01, max: 50, step: 0.01, label: 'Night adaptation (lux)', help: 'Lower = brighter nights (adapted eye).' },
+  adaptSpeed: { value: 1.5, min: 0.1, max: 10, step: 0.1, label: 'Adaptation speed' },
+  stars: { value: 1.0, min: 0, max: 5, step: 0.05, label: 'Stars' },
+  aerialPerspective: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Aerial perspective' },
+  sunIntensity: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Sun intensity' },
+  ambient: { value: 1.0, min: 0, max: 3, step: 0.05, label: 'Sky light' },
 });
 
 const TRANS_W = 256, TRANS_H = 64;

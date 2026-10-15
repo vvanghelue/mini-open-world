@@ -6,7 +6,7 @@ import { settings } from '../core/settings';
 import { adaptive } from '../core/adaptive';
 
 export const uiSettings = settings.group('ui', 'Interface', {
-  hud: { value: true, label: 'Afficher les stats (HUD)' },
+  hud: { value: true, label: 'Show stats (HUD)' },
 });
 
 const _size = new Vector2();
@@ -47,7 +47,7 @@ export class Hud {
       `${s.fps.toFixed(0).padStart(4)} fps   frame ${s.intervalMs.mean.toFixed(2)} ms (p99 ${s.intervalMs.p99.toFixed(1)})`,
       `CPU ${s.cpuMs.mean.toFixed(2)} ms   GPU ${s.gpuMs ? s.gpuMs.mean.toFixed(2) + ' ms' : 'n/a'}`,
       `draws ${s.drawCalls}   tris ${(s.triangles / 1e6).toFixed(2)} M   compute ${s.computeCalls}`,
-      `sortie ${_size.x}x${_size.y}   interne ${Math.round(_size.x * sc)}x${Math.round(_size.y * sc)} (${Math.round(sc * 100)} %${renderSettings.dynamicResolution ? (adaptive.capped ? ', dyn. vsync' : ', dyn.') : ''}${adaptive.quality < 0.999 ? `, détail ${Math.round(adaptive.quality * 100)} %` : ''}${adaptive.outputScale < 1 ? `, sortie ${Math.round(adaptive.outputScale * 100)} %` : ''})`,
+      `output ${_size.x}x${_size.y}   internal ${Math.round(_size.x * sc)}x${Math.round(_size.y * sc)} (${Math.round(sc * 100)} %${renderSettings.dynamicResolution ? (adaptive.capped ? ', dyn. vsync' : ', dyn.') : ''}${adaptive.quality < 0.999 ? `, detail ${Math.round(adaptive.quality * 100)} %` : ''}${adaptive.outputScale < 1 ? `, output ${Math.round(adaptive.outputScale * 100)} %` : ''})`,
     ];
     for (const fn of this.lines.values()) lines.push(fn());
     this.element.textContent = lines.join('\n');

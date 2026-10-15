@@ -17,11 +17,11 @@ import { makeVertexLighting } from '../lighting/vertex-lighting';
 import { qualityScaled } from '../core/adaptive';
 import { freezeStatic } from '../core/static';
 
-export const grassSettings = settings.group('grass', 'Herbe', {
-  enabled: { value: true, label: 'Herbe 3D' },
+export const grassSettings = settings.group('grass', 'Grass', {
+  enabled: { value: true, label: '3D grass' },
   distance: { value: 42, min: 10, max: 90, step: 1, label: 'Distance (m)' },
-  density: { value: 1, min: 0.1, max: 2, step: 0.05, label: 'Densité' },
-  height: { value: 0.38, min: 0.05, max: 1, step: 0.01, label: 'Hauteur (m)' },
+  density: { value: 1, min: 0.1, max: 2, step: 0.05, label: 'Density' },
+  height: { value: 0.38, min: 0.05, max: 1, step: 0.01, label: 'Height (m)' },
 });
 
 const SPACING = 0.25;

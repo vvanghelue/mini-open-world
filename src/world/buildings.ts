@@ -17,10 +17,10 @@ import { worldColliders } from './colliders';
 import { freezeStatic } from '../core/static';
 import { qualityScaled } from '../core/adaptive';
 
-export const buildingSettings = settings.group('buildings', 'Bâtiments', {
-  enabled: { value: true, label: 'Bâtiments (OpenStreetMap)' },
-  distance: { value: 8000, min: 1000, max: 12000, step: 250, label: 'Distance d\'affichage (m)' },
-  nightLights: { value: 0.45, min: 0, max: 1, step: 0.05, label: 'Fenêtres allumées la nuit' },
+export const buildingSettings = settings.group('buildings', 'Buildings', {
+  enabled: { value: true, label: 'Buildings (OpenStreetMap)' },
+  distance: { value: 8000, min: 1000, max: 12000, step: 250, label: 'Draw distance (m)' },
+  nightLights: { value: 0.45, min: 0, max: 1, step: 0.05, label: 'Lit windows at night' },
 });
 
 interface TileInfo { tx: number; tz: number; vOffset: number; vCount: number; iOffset: number; iCount: number; center: number[]; radius: number }

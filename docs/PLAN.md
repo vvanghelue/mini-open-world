@@ -18,7 +18,7 @@ The world is editable both by the user (side panel + editor) and by Claude as an
 - Every feature merges only if the benchmark stays within budget. Budget sketch (GPU, ms):
   shadows 1.0 · terrain 1.0 · vegetation 2.0 · sky/atmo/clouds 1.0 · water 0.5 · post 1.0 · margin 1.5.
 
-## Accepted scoping defaults (user said "fait au mieux")
+## Accepted scoping defaults (user said "do your best")
 | Topic | Decision |
 |---|---|
 | Terrain | Real DEM: swissALTI3D 2 m (core 20×20 km) + Copernicus GLO-30 (horizon ring ~80×80 km) |
@@ -31,7 +31,7 @@ The world is editable both by the user (side panel + editor) and by Claude as an
 | Assets | CC0 only (Poly Haven, ambientCG) + procedurally generated trees baked to impostors |
 | VCS | Local git; raw downloads and generated data are git-ignored and reproducible by scripts |
 | Browser | Chrome only (WebGPU) |
-| Language | Code/comments in English, conversation in French |
+| Language | Everything in English (UI, code, docs); conversation with the user in French |
 | Audio | Minimal, later |
 
 ## Rendering techniques (planned)

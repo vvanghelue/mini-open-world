@@ -76,7 +76,7 @@ async function main() {
   engine.add(new AudioSystem(terrain, time, player));
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
 
-  await engine.initSystems((name, i, n) => progress(`Initialisation : ${name}`, i / n));
+  await engine.initSystems((name, i, n) => progress(`Initializing: ${name}`, i / n));
   // sun visibility = near cascaded shadow maps x heightfield shadows (the terrain never renders into shadow maps)
   const csm = setupSunShadows(engine.renderer, atmosphere.sunLight, terrainShadows, clouds);
   engine.add({ name: 'shadowSchedule', update: (ctx) => scheduleSunShadows(csm, ctx.frame) });
@@ -102,7 +102,7 @@ async function main() {
   hud.lines.set('player', () => player.hudLine());
   hud.lines.set('time', () => {
     const p = engine.camera.position;
-    return `heure ${time.label()}   alt ${p.y.toFixed(0)} m   sol ${(p.y - terrain.heightAt(p.x, p.z)).toFixed(0)} m`;
+    return `time ${time.label()}   alt ${p.y.toFixed(0)} m   ground ${(p.y - terrain.heightAt(p.x, p.z)).toFixed(0)} m`;
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
@@ -111,7 +111,7 @@ async function main() {
   registerBuiltinCommands(app);
 
   // Compile all pipelines before the first visible frame (no shader hitches later).
-  progress('Compilation des shaders…', 1);
+  progress('Compiling shaders…', 1);
   await engine.renderer.compileAsync(engine.scene, engine.camera);
 
   engine.start();
@@ -122,5 +122,5 @@ async function main() {
 
 main().catch((err) => {
   console.error(err);
-  loadingText.textContent = `Erreur : ${err.message ?? err}`;
+  loadingText.textContent = `Error: ${err.message ?? err}`;
 });

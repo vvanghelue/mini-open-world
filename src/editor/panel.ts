@@ -1,4 +1,4 @@
-// Side panel generated from the settings schema (Tweakpane). Labels are in French (user-facing).
+// Side panel generated from the settings schema (Tweakpane). Labels come from the settings schema.
 import { Pane, FolderApi } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { settings, SettingDef } from '../core/settings';
@@ -31,7 +31,7 @@ export class Panel {
     } as CSSStyleDeclaration);
     document.body.appendChild(this.element);
 
-    this.pane = new Pane({ container: this.element, title: 'Monde — paramètres (F1)' });
+    this.pane = new Pane({ container: this.element, title: 'World — settings (F1)' });
     this.pane.registerPlugin(EssentialsPlugin);
 
     for (const g of settings.groups.values()) {

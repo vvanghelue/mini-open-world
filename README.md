@@ -1,73 +1,72 @@
 # Mini Open World
 
-Un monde ouvert de montagne réaliste dans le navigateur — la vraie région de la **Jungfrau, Lauterbrunnen et du lac
-de Brienz** (Suisse) — rendu avec **three.js WebGPU** à **100+ images/seconde sur un MacBook Air M4**.
-On s'y promène à pied, on décolle en avion de l'aérodrome d'Interlaken, on règle tout depuis un panneau latéral, et on
-peut éditer le monde à la souris ou par des commandes (pensées pour qu'un agent IA puisse le modifier en autonomie).
+A realistic mountain open world in the browser — the real **Jungfrau, Lauterbrunnen and Lake Brienz** region
+(Switzerland) — rendered with **three.js WebGPU** at **100+ frames per second on a MacBook Air M4**.
+Walk around on foot, take off in a plane from Interlaken airfield, tune everything from a side panel, and edit the
+world with the mouse or through commands (designed so that an AI agent can modify it on its own).
 
-![La face nord de l'Eiger depuis l'alpage de la Kleine Scheidegg](docs/images/eiger.jpg)
+![The Eiger north face from the Kleine Scheidegg pasture](docs/images/eiger.jpg)
 
 | | |
 |---|---|
-| ![Reflets dans le lac de Brienz](docs/images/lac.jpg) | ![Survol à haute altitude](docs/images/survol.jpg) |
-| ![Sentier en forêt](docs/images/foret.jpg) | ![Interlaken, bâtiments et rues OpenStreetMap](docs/images/interlaken.jpg) |
+| ![Reflections in Lake Brienz](docs/images/lake.jpg) | ![High-altitude flyover](docs/images/flyover.jpg) |
+| ![Forest trail](docs/images/forest.jpg) | ![Interlaken, OpenStreetMap buildings and streets](docs/images/interlaken.jpg) |
 
-![Interlaken de nuit](docs/images/nuit.jpg)
+![Interlaken at night](docs/images/night.jpg)
 
-## Ce qu'il y a dedans
+## What's inside
 
-- **Relief réel** : 24,6 km × 24,6 km au détail de 3 m (swissALTI3D) + 82 km d'horizon (Copernicus), terrain CDLOD
-  avec morphing (aucun « pop »), textures PBR mélangées selon l'occupation du sol déduite des orthophotos.
-- **Ciel et lumière** : atmosphère physique (Hillaire), cycle jour/nuit (soleil, lune, étoiles), exposition
-  perceptive, nuages volumétriques, ombres des montagnes jusqu'à l'horizon, ombres proches en cascades, illumination
-  globale (occlusion du ciel précalculée + lumière réfléchie par le relief), reflets du relief dans les lacs, bloom,
-  lens flare.
-- **Végétation** : des dizaines de milliers de conifères procéduraux (maillages de près, imposteurs octaédriques au
-  loin, transitions tramées), herbe et rochers générés sur le GPU.
-- **Monde habité** : ~24 000 bâtiments et 2 165 km de routes et sentiers issus d'OpenStreetMap, piste de l'aérodrome
-  d'Interlaken, fenêtres éclairées la nuit.
-- **Jouer** : caméra libre, marche à pied (collisions avec arbres, rochers, bâtiments), avion type Cessna (modèle de
-  vol semi-réaliste, vue poursuite ou cockpit), son procédural (vent, moteur, pas, cloches des vaches).
-- **Éditer** : panneau latéral (F1, ~120 réglages) et éditeur du monde (chalets, sapins, rochers, panneaux de
-  randonnée, bancs) enregistré dans `world/props.json`.
-- **Performance** : un gouverneur adapte la résolution interne puis le niveau de détail pour tenir ≤ 10 ms par image,
-  y compris quand le MacBook Air (sans ventilateur) chauffe.
+- **Real terrain**: 24.6 km × 24.6 km at 3 m detail (swissALTI3D) + 82 km of horizon (Copernicus), CDLOD terrain
+  with geomorphing (no popping), PBR textures blended from land cover derived from the orthophotos.
+- **Sky and light**: physically based atmosphere (Hillaire), day/night cycle (sun, moon, stars), perceptual exposure,
+  volumetric clouds, mountain shadows all the way to the horizon, near cascaded shadows, global illumination (baked
+  sky occlusion + light bounced off the terrain), terrain reflections in the lakes, bloom, lens flare.
+- **Vegetation**: tens of thousands of procedural conifers (meshes up close, octahedral impostors in the distance,
+  dithered transitions), grass and rocks generated on the GPU.
+- **Inhabited world**: ~24,000 buildings and 2,165 km of roads and trails from OpenStreetMap, the Interlaken airfield
+  runway, lit windows at night.
+- **Play**: free camera, walking (collisions with trees, rocks, buildings), Cessna-like plane (semi-realistic flight
+  model, chase or cockpit view), procedural sound (wind, engine, footsteps, cow bells).
+- **Edit**: side panel (F1, ~120 settings) and world editor (chalets, fir trees, rocks, trail signposts, benches)
+  saved to `world/props.json`.
+- **Performance**: a governor adapts the internal resolution, then the level of detail, to hold ≤ 10 ms per frame,
+  including when the fanless MacBook Air heats up.
 
-## Démarrer
+## Getting started
 
-Prérequis : **Chrome** récent (WebGPU), Node.js 20+, ~2 Go d'espace disque pour les données.
+Requirements: a recent **Chrome** (WebGPU), Node.js 20+, ~2 GB of disk space for the data.
 
 ```bash
 npm install
-npm run data   # télécharge les données géographiques (~1,1 Go) puis construit public/data (~0,6 Go) — une fois
+npm run data   # downloads the geographic data (~1.1 GB) then builds public/data (~0.6 GB) — once
 npm run dev    # http://localhost:5173
 ```
 
-Les données ne sont pas versionnées : `npm run data` les télécharge (swisstopo, Copernicus, OpenStreetMap, Poly Haven,
-ambientCG) et les prépare. Les téléchargements déjà présents sont ignorés.
+The data is not versioned: `npm run data` downloads it (swisstopo, Copernicus, OpenStreetMap, Poly Haven, ambientCG)
+and prepares it. Downloads already present are skipped.
 
-**Commandes** : `1` caméra libre (ZQSD/WASD, clic droit pour regarder, molette pour la vitesse) · `2` marche ·
-`3` avion (`V` change de vue) · `F1` panneau de réglages. L'éditeur du monde est dans la section « Éditeur du monde »
-du panneau (clic gauche en caméra libre pour placer ou supprimer).
+**Controls**: `1` free camera (WASD/ZQSD, right click to look, wheel for speed) · `2` walk · `3` plane (`V` switches
+the view) · `F1` settings panel. The world editor is in the "World editor" section of the panel (left click in free
+camera to place or remove).
 
-`npm run uncapped` ouvre une fenêtre Chrome sans limite à 60 Hz pour voir le vrai nombre d'images par seconde.
+`npm run uncapped` opens a Chrome window without the 60 Hz cap to see the real frame rate.
 
-## Outils (pour les humains et les agents)
+## Tools (for humans and agents)
 
-- `node tools/agent.mjs <commande>` pilote l'application ouverte dans le navigateur (`help` liste les commandes :
-  réglages, caméra, captures d'écran, objets du monde, avion, benchmark…).
-- `node tools/run.mjs '<commande>' …` fait la même chose dans un Chrome invisible (captures, diagnostics).
-- `node tools/bench.mjs` mesure les performances sur 4 parcours de caméra.
-- `node tools/acceptance.mjs` vérifie automatiquement chaque fonctionnalité et la performance
-  (rapport : [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md), historique : [docs/ACCEPTANCE-HISTORY.md](docs/ACCEPTANCE-HISTORY.md)).
+- `node tools/agent.mjs <command>` drives the app open in the browser (`help` lists the commands: settings, camera,
+  screenshots, world objects, plane, benchmark…).
+- `node tools/run.mjs '<command>' …` does the same in a headless Chrome (screenshots, diagnostics).
+- `node tools/bench.mjs` measures performance along 4 camera paths.
+- `node tools/acceptance.mjs` automatically checks every feature and the performance
+  (report: [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md), history: [docs/ACCEPTANCE-HISTORY.md](docs/ACCEPTANCE-HISTORY.md)).
 
-Notes d'architecture et de performance : [CLAUDE.md](CLAUDE.md) · plan et décisions : [docs/PLAN.md](docs/PLAN.md).
+Architecture and performance notes: [CLAUDE.md](CLAUDE.md) · plan and decisions: [docs/PLAN.md](docs/PLAN.md).
 
-## Données et crédits
+## Data and credits
 
-- Relief et orthophotos © [swisstopo](https://www.swisstopo.admin.ch) (données ouvertes, OGD).
-- Copernicus DEM GLO-30 © DLR e.V. 2010-2014 et © Airbus Defence and Space GmbH 2014-2018, fourni dans le cadre de
-  COPERNICUS par l'Union européenne et l'ESA.
-- Bâtiments, routes et sentiers © les contributeurs [OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL).
-- Textures [Poly Haven](https://polyhaven.com) et [ambientCG](https://ambientcg.com) (CC0).
-- Rendu : [three.js](https://threejs.org) ; panneau : [Tweakpane](https://tweakpane.github.io/docs/).
+- Terrain and orthophotos © [swisstopo](https://www.swisstopo.admin.ch) (open government data, OGD).
+- Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under
+  COPERNICUS by the European Union and ESA.
+- Buildings, roads and trails © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL).
+- Textures from [Poly Haven](https://polyhaven.com) and [ambientCG](https://ambientcg.com) (CC0).
+- Rendering: [three.js](https://threejs.org); panel: [Tweakpane](https://tweakpane.github.io/docs/).

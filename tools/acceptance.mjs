@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Acceptance test: every requirement of the original request turned into an automatic pass/fail check with its
-// measurement. Writes docs/ACCEPTANCE.md (French, for the user) and exits 1 if any check fails.
+// measurement. Writes docs/ACCEPTANCE.md and exits 1 if any check fails.
 //   node tools/acceptance.mjs            (dev server running; ~8 min; opens one visible Chrome window for the 60 Hz check)
 //   node tools/acceptance.mjs --quick    (skips the 2560x1440 stress part)
 import fs from 'node:fs';
@@ -57,7 +57,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const { browser, page, run, evalJs, errors } = await launch({ width: 1470, height: 830 });
   // world size and content
   const world = await evalJs(`const m=app.terrain.data.meta; return { core: m.core.size, far: m.far.size, buildings: app.buildings.stats.buildings };`);
-  check('monde', 'Scène de montagne de plusieurs km', world.core >= 20000 && world.far >= 80000, `relief réel ${world.core / 1000} km (détail 3 m) + horizon ${world.far / 1000} km, ${world.buildings} bâtiments`);
+  check('world', 'Mountain scene several km wide', world.core >= 20000 && world.far >= 80000, `real terrain ${world.core / 1000} km (3 m detail) + horizon ${world.far / 1000} km, ${world.buildings} buildings`);
   await run('bench', { paths: ['walk'], range: [0.75, 0.75], seconds: 0.5, warmup: 1.5 });
   await sleep(500);
   // trees counted on the forest trail, grass on the Kleine Scheidegg pasture (each where it grows)
@@ -68,7 +68,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1000);
   const grass = await evalJs(`const g=new Uint32Array(await app.engine.renderer.getArrayBufferAsync(app.grass.args)); return g[1];`);
   const rocks = await evalJs(`const r=new Uint32Array(await app.engine.renderer.getArrayBufferAsync(app.rocks.args)); return r[1]+r[6];`);
-  check('végétation', 'Arbres et végétation', trees > 1000 && grass > 1000, `${trees} arbres affichés depuis un sentier en forêt ; ${grass} touffes d'herbe et ${rocks} rochers sur l'alpage de la Kleine Scheidegg`);
+  check('vegetation', 'Trees and vegetation', trees > 1000 && grass > 1000, `${trees} trees drawn from a forest trail; ${grass} grass tufts and ${rocks} rocks on the Kleine Scheidegg pasture`);
 
   // plane: takeoff from the runway
   await run('mode', { mode: 'plane' });
@@ -80,7 +80,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await run('plane', { pitch: 0.05 });
   await sleep(4000);
   const pl = await run('plane', {});
-  check('avion', 'Décoller en avion', !pl.onGround && pl.agl > 15 && pl.airspeedKmh > 90, `décollage depuis la piste d'Interlaken : ${pl.airspeedKmh.toFixed(0)} km/h, ${pl.agl.toFixed(0)} m au-dessus du sol`);
+  check('plane', 'Take off in a plane', !pl.onGround && pl.agl > 15 && pl.airspeedKmh > 90, `takeoff from the Interlaken runway: ${pl.airspeedKmh.toFixed(0)} km/h, ${pl.agl.toFixed(0)} m above the ground`);
   await run('plane', { hold: false, throttle: 0 });
 
   // walk: forward for 2.5 s, then a building must block the walker
@@ -95,7 +95,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const p1 = await evalJs(`const w=app.player.walker; return [w.feet.x, w.feet.z, w.onGround];`);
   const walked = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
   const blocked = await evalJs(`const b=app.buildings; const poly=b.polys[1234]; let cx=0,cz=0; const n=poly.length/2; for(let i=0;i<n;i++){cx+=poly[i*2];cz+=poly[i*2+1];} const p={x:cx/n,z:cz/n}; b.pushOut(p,0.35); return Math.hypot(p.x-cx/n,p.z-cz/n) > 0.5;`);
-  check('marche', 'Se promener à pied', walked > 2 && p1[2] && blocked, `${walked.toFixed(1)} m parcourus en 2,5 s au sol ; les murs des bâtiments bloquent le marcheur`);
+  check('walk', 'Walk around on foot', walked > 2 && p1[2] && blocked, `${walked.toFixed(1)} m walked in 2.5 s on the ground; building walls block the walker`);
 
   // world editor: place a chalet 10 m ahead of the walker (6 s of walking would cross it), it must block; saved
   const before = await evalJs(`return app.props.list.length;`);
@@ -108,7 +108,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const saved = JSON.parse(fs.readFileSync(path.join(ROOT, 'world/props.json'), 'utf8')).props.length;
   await run('prop-remove', { id: ch.id });
   await run('props-save', {});
-  check('éditeur', 'Monde éditable (éditeur)', d >= 4.5 && saved === before + 1, `chalet placé, le marcheur s'arrête à ${d.toFixed(1)} m de son centre (mur à 4,6 m) ; enregistré dans world/props.json puis retiré ; placement/suppression à la souris en caméra libre (section « Éditeur du monde »)`);
+  check('editor', 'Editable world (editor)', d >= 4.5 && saved === before + 1, `chalet placed, the walker stops ${d.toFixed(1)} m from its centre (wall at 4.6 m); saved to world/props.json then removed; mouse place/remove in free camera ("World editor" section)`);
   await run('mode', { mode: 'free' });
 
   // day / night: exposure-adapted but darker at night, lit windows
@@ -122,7 +122,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await run('screenshot', { name, wait: 40 });
     lum[name] = await luminance(`screenshots/${name}.png`);
   }
-  check('jour-nuit', 'Cycle jour/nuit réaliste', lum.acc_day > lum.acc_dusk && lum.acc_dusk > lum.acc_night && lum.acc_night > 2, `luminance moyenne jour ${lum.acc_day.toFixed(0)} > crépuscule ${lum.acc_dusk.toFixed(0)} > nuit ${lum.acc_night.toFixed(0)} (nuit visible, pas noire)`);
+  check('day-night', 'Realistic day/night cycle', lum.acc_day > lum.acc_dusk && lum.acc_dusk > lum.acc_night && lum.acc_night > 2, `mean luminance day ${lum.acc_day.toFixed(0)} > dusk ${lum.acc_dusk.toFixed(0)} > night ${lum.acc_night.toFixed(0)} (night visible, not black)`);
   await run('set', { 'time.hour': 10.5 });
   await sleep(4000);
 
@@ -131,7 +131,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(3000);
   const gi = await run('gi-probe', {});
   const giOn = gi.bounce.some((v) => v > 0.001) && gi.coreValid;
-  check('GI', 'Illumination globale (GI)', giOn, `lumière réfléchie par le relief au fond de la vallée : ${gi.bounce.map((v) => v.toFixed(3)).join(' / ')} (RGB), plus occlusion du ciel précalculée`);
+  check('GI', 'Global illumination (GI)', giOn, `light bounced off the terrain at the valley floor: ${gi.bounce.map((v) => v.toFixed(3)).join(' / ')} (RGB), plus baked sky occlusion`);
 
   // far shadows: shadowed fraction of the terrain-shadow clipmap at a low sun
   await run('set', { 'time.hour': 8 });
@@ -144,7 +144,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await run('screenshot', { name: 'acc_shadows_off', wait: 40 });
   await run('set', { 'shadows.terrainShadows': true });
   const shDiff = await meanDiff('screenshots/acc_shadows_on.png', 'screenshots/acc_shadows_off.png');
-  check('ombres', 'Ombres lointaines (relief à l\'horizon)', shDiff > 3, `ombres portées des montagnes sur des dizaines de km : écart d'image ${shDiff.toFixed(1)} avec/sans`);
+  check('shadows', 'Far shadows (terrain to the horizon)', shDiff > 3, `mountains cast shadows over tens of km: image difference ${shDiff.toFixed(1)} with/without`);
 
   // water reflections (the "optimised SSR"): image differs with/without on Lake Brienz
   await run('set', { 'time.hour': 16 });
@@ -157,7 +157,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await run('screenshot', { name: 'acc_refl_off', wait: 40 });
   await run('set', { 'water.reflections': true });
   const rDiff = await meanDiff('screenshots/acc_refl_on.png', 'screenshots/acc_refl_off.png');
-  check('reflets', 'Reflets (SSR optimisé)', rDiff > 2, `les montagnes se reflètent dans le lac de Brienz : écart d'image ${rDiff.toFixed(1)} avec/sans`);
+  check('reflections', 'Reflections (optimised SSR)', rDiff > 2, `the mountains reflect in Lake Brienz: image difference ${rDiff.toFixed(1)} with/without`);
 
   // lens flare: looking into the sun with and without
   await run('set', { 'time.hour': 17.5 });
@@ -169,23 +169,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await run('screenshot', { name: 'acc_flare_off', wait: 40 });
   await run('set', { 'post.lensflare': 0.3 });
   const fDiff = await meanDiff('screenshots/acc_flare_on.png', 'screenshots/acc_flare_off.png');
-  check('lens flare', 'Lens flare', fDiff > 0.3, `face au soleil : écart d'image ${fDiff.toFixed(2)} avec/sans lens flare`);
+  check('lens flare', 'Lens flare', fDiff > 0.3, `facing the sun: image difference ${fDiff.toFixed(2)} with/without lens flare`);
 
   // side panel and agent tools
   const panel = await evalJs(`const el=app.panel.element; return { folders: el.querySelectorAll('.tp-fldv').length, inputs: el.querySelectorAll('input, select').length };`);
-  check('panneau', 'Panneau latéral de réglages', panel.folders >= 10 && panel.inputs >= 50, `${panel.folders} sections, ${panel.inputs} réglages (touche F1)`);
+  check('panel', 'Side settings panel', panel.folders >= 10 && panel.inputs >= 50, `${panel.folders} sections, ${panel.inputs} settings (F1 key)`);
   const cmds = await run('help', {});
   const nCmds = Array.isArray(cmds) ? cmds.length : Object.keys(cmds).length;
-  check('outils agent', 'Outils pour éditer en autonomie', nCmds >= 20, `${nCmds} commandes agent (réglages, caméra, captures, bench, avion…) + CLI tools/*.mjs + scripts de données`);
+  check('agent tools', 'Tools to edit autonomously', nCmds >= 20, `${nCmds} agent commands (settings, camera, screenshots, bench, plane…) + CLI tools/*.mjs + data scripts`);
 
   // real-window performance (the user's MacBook Air browser window)
   const perf = await run('bench', { seconds: 8 });
   const rows = Object.entries(perf).map(([k, v]) => `${k} ${(1000 / v.frameMs.mean).toFixed(0)} fps (p95 ${v.frameMs.p95} ms)`);
-  console.log('      diag: ' + Object.entries(perf).map(([k, v]) => `${k} res ${v.scale.mean} détail ${v.quality.mean} out ${v.outputReduced}% >10ms ${v.frameMs.over10}% max ${v.frameMs.max} segs ${v.timeline.map((t) => t.p95).join(',')}`).join(' | '));
+  console.log('      diag: ' + Object.entries(perf).map(([k, v]) => `${k} res ${v.scale.mean} detail ${v.quality.mean} out ${v.outputReduced}% >10ms ${v.frameMs.over10}% max ${v.frameMs.max} segs ${v.timeline.map((t) => t.p95).join(',')}`).join(' | '));
   const worstP95 = Math.max(...Object.values(perf).map((v) => v.frameMs.p95));
   const minFps = Math.min(...Object.values(perf).map((v) => 1000 / v.frameMs.mean));
-  check('100+ fps', '100+ fps sur le MacBook Air (fenêtre 1470×830)', minFps >= 100 && worstP95 <= 10, rows.join(', '));
-  check('erreurs', 'Aucune erreur', errors.length === 0, errors.length ? errors.slice(0, 3).join(' | ') : 'aucune erreur dans la console pendant tout le test');
+  check('100+ fps', '100+ fps on the MacBook Air (1470×830 window)', minFps >= 100 && worstP95 <= 10, rows.join(', '));
+  check('errors', 'No errors', errors.length === 0, errors.length ? errors.slice(0, 3).join(' | ') : 'no console error during the whole test');
   await browser.close();
 }
 
@@ -197,7 +197,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (const v of Object.values(r)) { n += v.frameMs.n; slow += Math.round((v.frameMs.n * (v.frameMs.over10 ?? 0)) / 100); q += v.quality.mean; qn++; }
   const late = Object.values(r).map((v) => v.frameMs.max);
   const missed = Object.values(r).reduce((s, v) => s + (v.frameMs.p99 > 25 ? 1 : 0), 0);
-  check('fluidité', 'Pas de saut d\'images, transitions fluides (Chrome normal, 60 Hz)', missed === 0 && q / qn > 0.95, `${n} images à 60 Hz sur 4 parcours, p99 ≤ 25 ms partout, pire image ${Math.max(...late).toFixed(0)} ms, qualité maximale conservée (${((q / qn) * 100).toFixed(0)} %)`);
+  check('smoothness', 'No dropped frames, smooth transitions (normal Chrome, 60 Hz)', missed === 0 && q / qn > 0.95, `${n} frames at 60 Hz over 4 paths, p99 ≤ 25 ms everywhere, worst frame ${Math.max(...late).toFixed(0)} ms, full quality kept (${((q / qn) * 100).toFixed(0)} %)`);
   void slow;
   await browser.close();
 }
@@ -227,34 +227,34 @@ if (!quick) {
   const r = await run('bench', { seconds: 30 });
   const rows = Object.entries(r).map(([k, v]) => `${k} p95 ${v.frameMs.p95} ms`);
   const worst = Math.max(...Object.values(r).map((v) => v.frameMs.p95));
-  check('stress 1440p', 'Marge (au-delà de la demande) : 2560×1440 sans plafond, p95 ≤ 10 ms', worst <= 10, rows.join(', ') + ` (gouverneur de qualité actif ; Chrome seul produisait ${spikes.toFixed(1)} pics > 10 ms/s sur une page vide, soit ~${((spikes / 160) * 100).toFixed(1)} % des images)`);
+  check('stress 1440p', 'Headroom (beyond the request): 2560×1440 uncapped, p95 ≤ 10 ms', worst <= 10, rows.join(', ') + ` (quality governor active; Chrome alone produced ${spikes.toFixed(1)} spikes > 10 ms/s on an empty page, ~${((spikes / 160) * 100).toFixed(1)} % of frames)`);
   await browser.close();
 }
 
 // ------------------------------------------------------------------ report
 const date = new Date().toISOString().slice(0, 16).replace('T', ' ');
 const ok = results.every((r) => r.pass);
-const md = `# Test d'acceptation — Mini Open World
+const md = `# Acceptance test — Mini Open World
 
-Généré automatiquement par \`node tools/acceptance.mjs\` le ${date} UTC (MacBook Air M4, Chrome).
-Chaque exigence de la demande initiale est vérifiée par une mesure ; relancer la commande pour revérifier.
+Generated automatically by \`node tools/acceptance.mjs\` on ${date} UTC (MacBook Air M4, Chrome).
+Each requirement of the original request is checked by a measurement; run the command again to re-check.
 
-**Résultat : ${results.filter((r) => r.pass).length} / ${results.length} exigences validées${ok ? '' : ' — voir les échecs ci-dessous'}.**
+**Result: ${results.filter((r) => r.pass).length} / ${results.length} requirements met${ok ? '' : ' — see the failures below'}.**
 
-| Exigence | Résultat | Mesure |
+| Requirement | Result | Measurement |
 |---|---|---|
 ${results.map((r) => `| ${r.requirement} | ${r.pass ? '✅' : '❌'} | ${r.evidence} |`).join('\n')}
 
-Captures produites par le test : \`screenshots/acc_*.png\`. Historique de toutes les exécutions : \`docs/ACCEPTANCE-HISTORY.md\`.
+Screenshots taken by the test: \`screenshots/acc_*.png\`. History of every run: \`docs/ACCEPTANCE-HISTORY.md\`.
 `;
 fs.writeFileSync(path.join(ROOT, 'docs/ACCEPTANCE.md'), md);
 // history: one line per run (failures included), so repeatability stays visible
 {
   const hist = path.join(ROOT, 'docs/ACCEPTANCE-HISTORY.md');
-  if (!fs.existsSync(hist)) fs.writeFileSync(hist, '# Historique des tests d\'acceptation\n\n| Date (UTC) | Résultat | Échecs | Fenêtre réelle (p95 max) | 2560×1440 (p95 max) |\n|---|---|---|---|---|\n');
+  if (!fs.existsSync(hist)) fs.writeFileSync(hist, '# Acceptance test history\n\n| Date (UTC) | Result | Failures | Real window (max p95) | 2560×1440 (max p95) |\n|---|---|---|---|---|\n');
   const p95max = (id) => { const r = results.find((x) => x.id === id); const m = r ? [...r.evidence.matchAll(/p95 ([\d.]+) ms/g)].map((x) => +x[1]) : []; return m.length ? Math.max(...m).toFixed(1) + ' ms' : '—'; };
   const failed = results.filter((r) => !r.pass).map((r) => r.id).join(', ') || '—';
-  fs.appendFileSync(hist, `| ${date} | ${results.filter((r) => r.pass).length} / ${results.length} | ${failed} | ${p95max('100+ fps')} | ${quick ? 'non mesuré' : p95max('stress 1440p')} |\n`);
+  fs.appendFileSync(hist, `| ${date} | ${results.filter((r) => r.pass).length} / ${results.length} | ${failed} | ${p95max('100+ fps')} | ${quick ? 'not measured' : p95max('stress 1440p')} |\n`);
 }
 console.log(`\n${ok ? 'ALL PASS' : 'SOME CHECKS FAILED'} -> docs/ACCEPTANCE.md`);
 process.exit(ok ? 0 : 1);

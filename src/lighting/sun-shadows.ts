@@ -9,11 +9,11 @@ import { settings } from '../core/settings';
 import { adaptive } from '../core/adaptive';
 import type { TerrainShadows } from './terrain-shadows';
 
-export const sunShadowSettings = settings.group('sunShadows', 'Ombres proches', {
-  enabled: { value: true, label: 'Ombres portées proches' },
-  distance: { value: 150, min: 40, max: 400, step: 10, label: 'Portée cascades (m)' },
-  mapSize: { value: 2048, options: { '1024': 1024, '2048': 2048, '4096': 4096 }, label: 'Résolution' },
-  alternateUnderLoad: { value: true, label: 'Cascades alternées sous charge', hidden: true },
+export const sunShadowSettings = settings.group('sunShadows', 'Near shadows', {
+  enabled: { value: true, label: 'Near cast shadows' },
+  distance: { value: 150, min: 40, max: 400, step: 10, label: 'Cascade range (m)' },
+  mapSize: { value: 2048, options: { '1024': 1024, '2048': 2048, '4096': 4096 }, label: 'Resolution' },
+  alternateUnderLoad: { value: true, label: 'Alternate cascades under load', hidden: true },
 });
 
 export function setupSunShadows(renderer: THREE.WebGPURenderer, sun: THREE.DirectionalLight, terrainShadows: TerrainShadows, clouds: Clouds | null = null) {

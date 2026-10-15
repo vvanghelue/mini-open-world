@@ -19,7 +19,7 @@ export function lv95ToWGS84(e: number, n: number) {
   return { lat: (lat * 100) / 36, lon: (lon * 100) / 36 };
 }
 
-/** Points of interest (LV95). Names in French for the UI. */
+/** Points of interest (LV95). Labels are shown in the UI. */
 export const POIS: Record<string, { e: number; n: number; label: string }> = {
   jungfrau: { e: 2640187, n: 1154068, label: 'Jungfrau' },
   eiger: { e: 2643437, n: 1158637, label: 'Eiger' },
@@ -29,9 +29,9 @@ export const POIS: Record<string, { e: number; n: number; label: string }> = {
   murren: { e: 2634803, n: 1156513, label: 'Mürren' },
   grindelwald: { e: 2646165, n: 1163838, label: 'Grindelwald' },
   interlaken: { e: 2632479, n: 1170652, label: 'Interlaken' },
-  airfield: { e: 2633710, n: 1169580, label: 'Aérodrome d\'Interlaken' },
+  airfield: { e: 2633710, n: 1169580, label: 'Interlaken airfield' },
   kleinescheidegg: { e: 2640043, n: 1159470, label: 'Kleine Scheidegg' },
   schilthorn: { e: 2630409, n: 1156367, label: 'Schilthorn' },
-  brienzersee: { e: 2641000, n: 1174500, label: 'Lac de Brienz' },
-  thunersee: { e: 2624500, n: 1170200, label: 'Lac de Thoune' },
+  brienzersee: { e: 2641000, n: 1174500, label: 'Lake Brienz' },
+  thunersee: { e: 2624500, n: 1170200, label: 'Lake Thun' },
 };

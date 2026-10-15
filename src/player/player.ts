@@ -14,12 +14,12 @@ import { registerCommand } from '../agent/bridge';
 
 export const playerSettings = settings.group(
   'player',
-  'Joueur',
+  'Player',
   {
-    mode: { value: 'free', options: { 'Caméra libre (1)': 'free', 'Marche (2)': 'walk', 'Avion (3)': 'plane' }, label: 'Mode' },
-    planeCam: { value: 'chase', options: { Poursuite: 'chase', Cockpit: 'cockpit' }, label: 'Caméra avion (V)' },
-    chaseDistance: { value: 16, min: 6, max: 60, step: 1, label: 'Distance poursuite (m)' },
-    mouseFlight: { value: false, label: 'Pilotage à la souris' },
+    mode: { value: 'free', options: { 'Free camera (1)': 'free', 'Walk (2)': 'walk', 'Plane (3)': 'plane' }, label: 'Mode' },
+    planeCam: { value: 'chase', options: { Chase: 'chase', Cockpit: 'cockpit' }, label: 'Plane camera (V)' },
+    chaseDistance: { value: 16, min: 6, max: 60, step: 1, label: 'Chase distance (m)' },
+    mouseFlight: { value: false, label: 'Mouse flight controls' },
   },
   true,
 );
@@ -229,9 +229,9 @@ export class Player implements System {
       const ac = this.aircraft;
       const agl = ac.position.y - this.terrain.heightAt(ac.position.x, ac.position.z) - GEAR_HEIGHT;
       const c = ac.controls;
-      return `AVION  ${(ac.airspeed * 3.6).toFixed(0)} km/h  alt ${ac.position.y.toFixed(0)} m  sol ${agl.toFixed(0)} m  moteur ${(c.throttle * 100).toFixed(0)}%  volets ${c.flaps * 100}%${ac.stalled ? '  DÉCROCHAGE' : ''}${c.brake ? '  FREINS' : ''}\n  W/S tangage  A/D roulis  Q/E palonnier  Shift/Ctrl (R/F) gaz  G volets  B freins  V caméra  T piste`;
+      return `PLANE  ${(ac.airspeed * 3.6).toFixed(0)} km/h  alt ${ac.position.y.toFixed(0)} m  ground ${agl.toFixed(0)} m  throttle ${(c.throttle * 100).toFixed(0)}%  flaps ${c.flaps * 100}%${ac.stalled ? '  STALL' : ''}${c.brake ? '  BRAKES' : ''}\n  W/S pitch  A/D roll  Q/E rudder  Shift/Ctrl (R/F) throttle  G flaps  B brakes  V camera  T runway`;
     }
-    if (this.mode === 'walk') return `MARCHE  ZQSD/WASD  Shift courir  Espace sauter  clic: verrouiller la souris`;
-    return `CAMÉRA LIBRE  WASD/ZQSD  E/Q haut/bas  clic droit: regarder  molette: vitesse   1 libre · 2 marche · 3 avion`;
+    if (this.mode === 'walk') return `WALK  WASD/ZQSD  Shift run  Space jump  click: lock the mouse`;
+    return `FREE CAMERA  WASD/ZQSD  E/Q up/down  right click: look  wheel: speed   1 free · 2 walk · 3 plane`;
   }
 }

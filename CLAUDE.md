@@ -2,7 +2,8 @@
 
 Realistic mountain open world (real Jungfrau/Lauterbrunnen terrain) in three.js r186 `WebGPURenderer` + TSL,
 editable by the user (side panel) and by Claude (agent bridge + CLI). Plan & decisions: `docs/PLAN.md`.
-User speaks French (UI labels and chat in French, code/comments in English), has no 3D background.
+User speaks French (chat in French) and has no 3D background. **Everything in the repo is English**: UI labels, HUD,
+POI names, code, comments, docs, tool output — no French anywhere in the app or code.
 
 ## Hard rule: performance
 - Target machine: MacBook Air M4 (10-core GPU, fanless), 60 Hz screen. Stress target = **frame ≤ 10 ms (aim ≤ 8)
@@ -86,13 +87,13 @@ User speaks French (UI labels and chat in French, code/comments in English), has
 - `node tools/ab.mjs --path=walk [--range=0.7,0.8] --seconds=4 --rounds=2 '' 'a.b=1' 'c.d=false'` → interleaved A/B
   (settings reset to defaults before each variant; '' = baseline).
 - `node tools/acceptance.mjs [--quick]` → every requirement of the original request as a measured pass/fail check
-  (~10 min, opens one visible Chrome for the 60 Hz check), writes `docs/ACCEPTANCE.md` (French). Run it after big changes.
+  (~10 min, opens one visible Chrome for the 60 Hz check), writes `docs/ACCEPTANCE.md`. Run it after big changes.
 - `node tools/profile.mjs [--path=valley]` CPU self time; `tools/alloc-profile.mjs` JS allocations;
   `tools/dev/*` low-level probes (minimal WebGPU page, spikes, GC trace).
 
 ## Architecture (src/)
 - `core/engine.ts` Engine + System interface (init/update/afterRender), loop, stats. `core/settings.ts` schema-driven
-  settings store: systems declare `settings.group(id, frenchTitle, defs)`; panel + agent use it automatically.
+  settings store: systems declare `settings.group(id, title, defs)`; panel + agent use it automatically.
   `core/three-patches.ts` runtime patches of three internals (imported first).
 - `terrain/` CDLOD quadtree (`cdlod.ts`, 32² full + 16² quarter patches, geomorphing), data (`terrain-data.ts`,
   CPU `heightAt()` mirrors GPU sampling), material (`terrain-material.ts`: 8 PBR layers from ortho land cover,
@@ -108,8 +109,8 @@ User speaks French (UI labels and chat in French, code/comments in English), has
   Rocks (`rocks.ts`: land-cover scatter, power-law sizes, sink fade; `RockQuery` CPU replica for collisions).
 - `world/` airfield (runway strip with procedural markings), buildings (OSM, 2 km merged supertiles, procedural
   facades, night windows, sink into the terrain far away), roads/trails (blended decal ribbons with markings, ruts),
-  `colliders.ts` (static colliders for the walker), `props.ts` world editor (placed objects: chalet, sapin, rocher,
-  panneau, banc — instanced procedural meshes; mouse place/remove in free camera, panel « Éditeur du monde »;
+  `colliders.ts` (static colliders for the walker), `props.ts` world editor (placed objects: chalet, fir, rock,
+  signpost, bench — instanced procedural meshes; mouse place/remove in free camera, panel "World editor";
   `world/props.json` auto-saved; agent commands `props`, `prop-add {type,e,n|x,z|at camera}`, `prop-remove`, `props-save`). `audio/audio.ts` procedural WebAudio (wind, engine, steps, bells).
 - `player/` free camera, walker (trunks via CPU replica of the scatter + world colliders), aircraft (flight model, gear).
 - `agent/` bridge client, commands, benchmark camera paths. `editor/` Tweakpane panel (F1) and HUD.

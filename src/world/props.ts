@@ -99,21 +99,21 @@ function bench() {
   return merge([seat, back, ...legs]);
 }
 
-/** Object types: label (French, UI), geometry builder, collision radius (m, at scale 1; 0 = none). */
+/** Object types: label (UI), geometry builder, collision radius (m, at scale 1; 0 = none). */
 export const PROP_TYPES: Record<string, { label: string; build: () => THREE.BufferGeometry; radius: number }> = {
   chalet: { label: 'Chalet', build: chalet, radius: 4.6 },
-  sapin: { label: 'Sapin', build: fir, radius: 0.5 },
-  rocher: { label: 'Rocher', build: rock, radius: 1.6 },
-  panneau: { label: 'Panneau de randonnée', build: signpost, radius: 0.15 },
-  banc: { label: 'Banc', build: bench, radius: 0 },
+  fir: { label: 'Fir tree', build: fir, radius: 0.5 },
+  rock: { label: 'Rock', build: rock, radius: 1.6 },
+  signpost: { label: 'Trail signpost', build: signpost, radius: 0.15 },
+  bench: { label: 'Bench', build: bench, radius: 0 },
 };
 
-export const editorSettings = settings.group('editor', 'Éditeur du monde', {
-  mode: { value: 'off', options: { 'Désactivé': 'off', 'Placer (clic gauche)': 'place', 'Supprimer (clic gauche)': 'remove' }, label: 'Mode (caméra libre)' },
-  type: { value: 'chalet', options: Object.fromEntries(Object.entries(PROP_TYPES).map(([k, t]) => [t.label, k])), label: 'Objet' },
-  randomYaw: { value: true, label: 'Orientation aléatoire' },
-  scale: { value: 1, min: 0.3, max: 3, step: 0.05, label: 'Échelle' },
-  count: { value: 0, readonly: true, label: 'Objets placés' },
+export const editorSettings = settings.group('editor', 'World editor', {
+  mode: { value: 'off', options: { Off: 'off', 'Place (left click)': 'place', 'Remove (left click)': 'remove' }, label: 'Mode (free camera)' },
+  type: { value: 'chalet', options: Object.fromEntries(Object.entries(PROP_TYPES).map(([k, t]) => [t.label, k])), label: 'Object' },
+  randomYaw: { value: true, label: 'Random orientation' },
+  scale: { value: 1, min: 0.3, max: 3, step: 0.05, label: 'Scale' },
+  count: { value: 0, readonly: true, label: 'Placed objects' },
 });
 
 export class Props implements System {

@@ -18,7 +18,7 @@ interface PathDef {
 
 export const BENCH_PATHS: Record<string, PathDef> = {
   valley: {
-    label: 'Vol bas dans la vallée de Lauterbrunnen',
+    label: 'Low flight through the Lauterbrunnen valley',
     seconds: 30,
     keys: [
       { at: 'interlaken', h: 250 },
@@ -36,7 +36,7 @@ export const BENCH_PATHS: Record<string, PathDef> = {
     ],
   },
   flyover: {
-    label: 'Survol haute altitude Eiger / Mönch / Jungfrau',
+    label: 'High-altitude flyover of Eiger / Mönch / Jungfrau',
     seconds: 30,
     keys: [
       { at: 'grindelwald', h: 4300, agl: false },
@@ -54,7 +54,7 @@ export const BENCH_PATHS: Record<string, PathDef> = {
     ],
   },
   lake: {
-    label: 'Vol bas le long du lac de Brienz (reflets)',
+    label: 'Low flight along Lake Brienz (reflections)',
     seconds: 30,
     keys: [
       { at: [2635800, 1171200], h: 60 },
@@ -72,7 +72,7 @@ export const BENCH_PATHS: Record<string, PathDef> = {
     ],
   },
   walk: {
-    label: 'Marche près de Kleine Scheidegg',
+    label: 'Walk near Kleine Scheidegg',
     seconds: 30,
     keys: [
       { at: [2639600, 1159800], h: 1.7 },

@@ -15,10 +15,10 @@ import { skyVisAt } from '../terrain/terrain-material';
 import { freezeStatic } from '../core/static';
 import { qualityScaled } from '../core/adaptive';
 
-export const roadSettings = settings.group('roads', 'Routes et sentiers', {
-  enabled: { value: true, label: 'Routes et sentiers (OSM)' },
+export const roadSettings = settings.group('roads', 'Roads and trails', {
+  enabled: { value: true, label: 'Roads and trails (OSM)' },
   distance: { value: 2500, min: 500, max: 6000, step: 100, label: 'Distance (m)' },
-  trails: { value: true, label: 'Sentiers de randonnée' },
+  trails: { value: true, label: 'Hiking trails' },
 });
 
 interface TileInfo { tx: number; tz: number; cx: number; cz: number; vOffset: number; vCount: number; iOffset: number; iCount: number; minY: number; maxY: number }

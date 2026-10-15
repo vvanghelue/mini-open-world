@@ -25,23 +25,23 @@ import { qualityScaled, adaptive } from '../core/adaptive';
 import { lightingHooks } from '../lighting/vertex-lighting';
 import { freezeStatic } from '../core/static';
 
-export const forestSettings = settings.group('forest', 'Forêt', {
-  enabled: { value: true, label: 'Arbres' },
-  density: { value: 1.0, min: 0, max: 2, step: 0.05, label: 'Densité' },
+export const forestSettings = settings.group('forest', 'Forest', {
+  enabled: { value: true, label: 'Trees' },
+  density: { value: 1.0, min: 0, max: 2, step: 0.05, label: 'Density' },
   lod0Distance: { value: 30, min: 15, max: 200, step: 5, label: 'Distance LOD0 (m)' },
   lod1Distance: { value: 75, min: 50, max: 600, step: 5, label: 'Distance LOD1 (m)' },
   maxDistance: { value: 2000, min: 500, max: 4000, step: 50, label: 'Distance max (m)' },
-  treeline: { value: 2050, min: 1500, max: 2600, step: 10, label: 'Limite des arbres (m)' },
-  wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Vent' },
-  foliagePrepass: { value: true, label: 'Pré-passe profondeur feuillage' },
-  impostorPrepass: { value: true, label: 'Pré-passe profondeur imposteurs' },
-  skipEmptyDraws: { value: true, label: 'Ignorer les listes vides (CPU)', hidden: true },
-  debugDraw: { value: 'all', options: { Tout: 'all', 'Maillages seuls': 'meshes', 'Imposteurs seuls': 'impostors', 'Aucun (compute seul)': 'none' }, label: 'Debug dessin' },
-  debugFlatImpostors: { value: false, label: 'Debug imposteurs unis', hidden: true },
-  debugMeshShading: { value: 'full', options: { full: 'full', noShadow: 'noShadow', noFog: 'noFog', basic: 'basic' }, label: 'Debug shading maillages', hidden: true },
-  impostorBlendDistance: { value: 300, min: 0, max: 5000, step: 50, label: 'Imposteurs: fondu 4 vues jusqu\'à (m)' },
-  impostorStochastic: { value: true, label: 'Imposteurs: vue stochastique au-delà' },
-  impostorEarlyDiscard: { value: true, label: 'Imposteurs: rejet anticipé', hidden: true },
+  treeline: { value: 2050, min: 1500, max: 2600, step: 10, label: 'Treeline (m)' },
+  wind: { value: 1.0, min: 0, max: 4, step: 0.05, label: 'Wind' },
+  foliagePrepass: { value: true, label: 'Foliage depth pre-pass' },
+  impostorPrepass: { value: true, label: 'Impostor depth pre-pass' },
+  skipEmptyDraws: { value: true, label: 'Skip empty lists (CPU)', hidden: true },
+  debugDraw: { value: 'all', options: { All: 'all', 'Meshes only': 'meshes', 'Impostors only': 'impostors', 'None (compute only)': 'none' }, label: 'Debug draw' },
+  debugFlatImpostors: { value: false, label: 'Debug flat impostors', hidden: true },
+  debugMeshShading: { value: 'full', options: { full: 'full', noShadow: 'noShadow', noFog: 'noFog', basic: 'basic' }, label: 'Debug mesh shading', hidden: true },
+  impostorBlendDistance: { value: 300, min: 0, max: 5000, step: 50, label: 'Impostors: 4-view blend up to (m)' },
+  impostorStochastic: { value: true, label: 'Impostors: stochastic view beyond' },
+  impostorEarlyDiscard: { value: true, label: 'Impostors: early discard', hidden: true },
 });
 
 const GRID = 4.5; // candidate spacing (m)

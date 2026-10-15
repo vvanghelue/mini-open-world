@@ -19,9 +19,9 @@ import { worldColliders } from '../world/colliders';
 import { qualityScaled } from '../core/adaptive';
 import { freezeStatic } from '../core/static';
 
-export const rockSettings = settings.group('rocks', 'Rochers', {
-  enabled: { value: true, label: 'Rochers et blocs' },
-  density: { value: 1, min: 0, max: 3, step: 0.05, label: 'Densité' },
+export const rockSettings = settings.group('rocks', 'Rocks', {
+  enabled: { value: true, label: 'Rocks and boulders' },
+  density: { value: 1, min: 0, max: 3, step: 0.05, label: 'Density' },
   distance: { value: 1, min: 0.3, max: 2, step: 0.05, label: 'Distance (x)' },
 });
 

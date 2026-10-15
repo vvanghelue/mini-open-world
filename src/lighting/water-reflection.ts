@@ -15,9 +15,9 @@ import type { Terrain } from '../terrain/terrain';
 import type { Atmosphere } from '../sky/atmosphere';
 import type { TerrainShadows } from './terrain-shadows';
 
-export const waterSettings = settings.group('water', 'Eau', {
-  reflections: { value: true, label: 'Reflets du relief' },
-  haze: { value: 28, min: 5, max: 120, step: 1, label: 'Brume des reflets (km)' },
+export const waterSettings = settings.group('water', 'Water', {
+  reflections: { value: true, label: 'Terrain reflections' },
+  haze: { value: 28, min: 5, max: 120, step: 1, label: 'Reflection haze (km)' },
 });
 
 const STEPS = 16; // geometric steps (x1.6): 4 m near the surface, ~20 km reach

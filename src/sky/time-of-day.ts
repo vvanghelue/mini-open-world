@@ -6,12 +6,12 @@ import { sunDirection, moonDirection } from './sun';
 
 export const timeSettings = settings.group(
   'time',
-  'Heure & date',
+  'Time & date',
   {
-    hour: { value: 10.5, min: 0, max: 24, step: 0.01, label: 'Heure' },
-    day: { value: 196, min: 1, max: 365, step: 1, label: 'Jour de l\'année' },
-    speed: { value: 30, min: 0, max: 3600, step: 1, label: 'Vitesse (x temps réel)', help: '60 = une minute de jeu par seconde ; 0 = figé' },
-    year: { value: 2026, min: 2000, max: 2100, step: 1, label: 'Année', hidden: true },
+    hour: { value: 10.5, min: 0, max: 24, step: 0.01, label: 'Hour' },
+    day: { value: 196, min: 1, max: 365, step: 1, label: 'Day of year' },
+    speed: { value: 30, min: 0, max: 3600, step: 1, label: 'Speed (x real time)', help: '60 = one game minute per second; 0 = frozen' },
+    year: { value: 2026, min: 2000, max: 2100, step: 1, label: 'Year', hidden: true },
   },
   true,
 );

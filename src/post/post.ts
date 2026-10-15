@@ -18,13 +18,13 @@ import { adaptive } from '../core/adaptive';
 /** Late-bound passes provided by other systems (built at first render, after every system is initialised). */
 export const postHooks: { waterReflection: ((depth: any, wmask: any) => any) | null } = { waterReflection: null };
 
-export const postSettings = settings.group('post', 'Post-traitement', {
-  upscaler: { value: 'lite', options: { 'TAAU léger (rapide)': 'lite', 'TAAU three.js': 'taau', 'Bilinéaire': 'bilinear' }, label: 'Upscaling' },
-  sharpen: { value: 0.25, min: 0, max: 1.5, step: 0.05, label: 'Netteté' },
-  exposure: { value: 1, min: 0.05, max: 8, step: 0.01, label: 'Exposition' },
+export const postSettings = settings.group('post', 'Post-processing', {
+  upscaler: { value: 'lite', options: { 'TAAU lite (fast)': 'lite', 'TAAU three.js': 'taau', 'Bilinear': 'bilinear' }, label: 'Upscaling' },
+  sharpen: { value: 0.25, min: 0, max: 1.5, step: 0.05, label: 'Sharpen' },
+  exposure: { value: 1, min: 0.05, max: 8, step: 0.01, label: 'Exposure' },
   toneMapping: { value: 'aces', options: { AgX: 'agx', ACES: 'aces', Neutral: 'neutral' }, label: 'Tone mapping' },
   bloom: { value: 0.06, min: 0, max: 0.5, step: 0.005, label: 'Bloom' },
-  bloomThreshold: { value: 1.6, min: 0.2, max: 10, step: 0.1, label: 'Seuil bloom' },
+  bloomThreshold: { value: 1.6, min: 0.2, max: 10, step: 0.1, label: 'Bloom threshold' },
   lensflare: { value: 0.3, min: 0, max: 3, step: 0.05, label: 'Lens flare' },
 });
 
