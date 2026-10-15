@@ -14,6 +14,7 @@ import { Atmosphere } from './sky/atmosphere';
 import { TerrainShadows } from './lighting/terrain-shadows';
 import { setupSunShadows } from './lighting/sun-shadows';
 import { Forest } from './vegetation/forest';
+import { Grass } from './vegetation/grass';
 import { POIS, lv95ToWorld } from './world/geo';
 import type { App } from './app';
 
@@ -47,6 +48,7 @@ async function main() {
   const atmosphere = engine.add(new Atmosphere(time));
   const terrainShadows = engine.add(new TerrainShadows(terrain, time));
   const forest = engine.add(new Forest(terrain, atmosphere, terrainShadows));
+  const grass = engine.add(new Grass(terrain));
   engine.add(new Post());
   const player = engine.add(new Player(terrain, freeCam, input));
   engine.add({ name: 'input-end', afterRender: () => input.endFrame() });
@@ -71,7 +73,7 @@ async function main() {
   });
   engine.add({ name: 'hud', afterRender: () => hud.update(performance.now()) });
 
-  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, forest, player };
+  const app: App = { engine, input, terrain, freeCam, panel, hud, time, atmosphere, terrainShadows, forest, grass, player };
   (window as any).app = app;
   registerBuiltinCommands(app);
 

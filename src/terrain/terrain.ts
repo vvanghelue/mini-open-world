@@ -92,6 +92,8 @@ export class Terrain implements System {
 
   // Exposed TSL helpers for other systems (vegetation, water, shadows)
   heightNode!: (xz: any) => any;
+  /** TSL: 1 inside the core data area, blending to 0 at its border. */
+  coreWeightNode!: (xz: any) => any;
   /** TSL: forest cover fraction (0..1) at world xz. */
   forestNode!: (xz: any) => any;
   normalNode!: (xz: any) => any;
@@ -127,6 +129,7 @@ export class Terrain implements System {
       return mix(hf, hc, coreWeight(xz));
     });
     this.heightNode = sampleHeight;
+    this.coreWeightNode = coreWeight;
 
     const sampleNormal = Fn(([xz]: [any]) => {
       const nc = texture(coreNormalTex, xz.div(uCoreSize).add(0.5)).rg;
